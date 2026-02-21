@@ -1,0 +1,342 @@
+/* RESET E ESTILOS BASE */
+body, html {
+    margin: 0; padding: 0;
+    min-height: 100%;
+    /* Fundo degradê para imitar águas claras, do topo (mais claro) para o fundo (mais escuro) */
+    background: linear-gradient(to bottom, #7fe5f0, #4cc9f0, #4895ef, #4361ee, #3a0ca3);
+    color: #ffffff;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    overflow-x: hidden; /* Evita scroll horizontal */
+    scroll-behavior: smooth; /* Rolagem suave para os links do menu */
+}
+
+/* Efeito do Sol batendo no meio (topo) */
+.sunlight {
+    position: fixed;
+    top: -150px; /* Posiciona o centro do brilho acima da tela */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 1200px; /* Largura maior para cobrir mais área */
+    height: 700px; /* Altura do brilho */
+    /* Brilho radial branco/amarelo claro com maior transparência no centro */
+    background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.4) 30%, transparent 60%);
+    z-index: 1; /* Abaixo do overlay de água para um efeito mais submerso */
+    pointer-events: none; /* Não interfere com cliques */
+    filter: blur(25px); /* Suaviza o efeito de brilho */
+}
+
+/* Camada de Textura de Água (efeito de superfície e movimento) */
+.water-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: url('https://www.transparenttextures.com/patterns/water.png'); /* Textura de água */
+    opacity: 0.25; /* Transparência para ver o fundo e o sol */
+    z-index: 2; /* Acima do sol, abaixo do conteúdo */
+    pointer-events: none;
+    animation: moveWater 20s infinite linear; /* Animação de movimento contínuo */
+}
+
+@keyframes moveWater {
+    from { background-position: 0 0; }
+    to { background-position: 500px 500px; } /* Movimento diagonal */
+}
+
+/* Container para as Bolhas (para que fiquem acima do sol e água, mas abaixo do conteúdo) */
+#bubble-container {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* Bolhas Individuais */
+.bubble {
+    position: fixed; /* Fixa na tela */
+    bottom: -50px; /* Começa abaixo da tela */
+    background: rgba(255, 255, 255, 0.4); /* Bolhas translúcidas */
+    border: 1px solid rgba(255, 255, 255, 0.6); /* Borda para dar volume */
+    border-radius: 50%; /* Formato redondo */
+    z-index: 5; /* Z-index para as bolhas */
+    animation: rise var(--speed) infinite ease-in; /* Animação de subir */
+    box-shadow: 0 0 5px rgba(255,255,255,0.3); /* Brilho suave */
+}
+
+@keyframes rise {
+    0% { transform: translateY(0); opacity: 0; }
+    20% { opacity: 0.7; }
+    100% { transform: translateY(-120vh); opacity: 0; } /* Sobe e desaparece */
+}
+
+/* Pato (seguindo o mouse) */
+.duck {
+    width: 80px; /* Tamanho do pato */
+    height: 80px;
+    background: url('duck.png') no-repeat center/contain; /* Imagem do pato */
+    position: fixed;
+    z-index: 100; /* Acima de bolhas, mas abaixo do header */
+    pointer-events: none; /* Não bloqueia o mouse */
+    transition: transform 0.1s ease-out; /* Transição suave para virar */
+}
+
+/* HEADER PRINCIPAL */
+.main-header {
+    position: fixed; /* Fixo no topo */
+    top: 0; left: 0; width: 100%;
+    padding: 20px 5%; /* Padding lateral adaptável */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0, 75, 110, 0.4); /* Fundo translúcido */
+    backdrop-filter: blur(15px); /* Efeito de vidro embaçado */
+    z-index: 2000; /* Sempre no topo */
+    box-sizing: border-box; /* Padding incluído na largura */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2); /* Sombra suave */
+}
+
+.logo { font-size: 1.8rem; font-weight: bold; color: white; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
+.logo span { color: #4cc9f0; } /* Destaque na cor do logo */
+
+.nav-menu a {
+    color: white;
+    text-decoration: none;
+    margin-left: 35px; /* Espaçamento entre os links */
+    font-weight: 500;
+    font-size: 1.1rem;
+    transition: 0.3s ease;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+}
+
+.nav-menu a:hover { color: #4cc9f0; transform: translateY(-2px); } /* Efeito ao passar o mouse */
+
+/* Menu Hambúrguer (Escondido por padrão) */
+.hamburger {
+    display: none; /* Escondido em telas grandes */
+    font-size: 2rem;
+    cursor: pointer;
+    color: white;
+    z-index: 2001; /* Acima do menu para ser clicável */
+}
+
+/* CONTAINER PRINCIPAL DO CONTEÚDO */
+.ocean-container {
+    position: relative;
+    z-index: 10; /* Acima dos efeitos de fundo, abaixo do header */
+    padding-top: 150px; /* Espaço para o header fixo */
+    padding-bottom: 50px; /* Espaço antes do footer */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    min-height: calc(100vh - 150px - 50px); /* Garante que o container ocupe a altura mínima */
+}
+
+/* Seção Hero (Início) */
+.hero {
+    margin-bottom: 80px;
+}
+.hero h1 {
+    font-size: 4.5rem;
+    margin-bottom: 15px;
+    line-height: 1.1;
+}
+.hero p {
+    font-size: 1.4rem;
+    opacity: 0.9;
+}
+
+
+/* Efeito de Texto Ondulante */
+.wavy-text {
+    display: inline-block; /* Permite que cada letra se anime individualmente se desejado */
+    animation: text-float 6s infinite ease-in-out;
+    color: #b0e0e6; /* Cor do texto mais clara */
+    text-shadow: 2px 2px 8px rgba(0,0,0,0.6);
+}
+
+@keyframes text-float {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(7px, -12px); } /* Balanço mais notável */
+}
+
+/* Conteúdo Principal */
+.content {
+    max-width: 1000px;
+    width: 90%;
+}
+
+/* Cartões de Informação */
+.info-card {
+    background: rgba(255, 255, 255, 0.15); /* Fundo translúcido mais claro */
+    backdrop-filter: blur(12px); /* Efeito de vidro mais intenso */
+    border: 1px solid rgba(255, 255, 255, 0.25); /* Borda mais visível */
+    padding: 40px;
+    margin: 40px 0; /* Mais espaçamento entre os cartões */
+    border-radius: 20px;
+    text-align: left;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3); /* Sombra para profundidade */
+}
+.info-card h2 {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    color: #e0f2f7;
+    text-align: center;
+}
+.info-card p, .info-card ul {
+    font-size: 1.15rem;
+    line-height: 1.7;
+    margin-bottom: 15px;
+}
+.info-card ul {
+    list-style: none; /* Remove bolinhas padrão */
+    padding-left: 0;
+}
+.info-card ul li {
+    position: relative;
+    padding-left: 25px;
+    margin-bottom: 10px;
+}
+.info-card ul li::before {
+    content: '🐠'; /* Ícone de peixe antes de cada item */
+    position: absolute;
+    left: 0;
+    color: #4cc9f0;
+    font-size: 1.2rem;
+}
+
+/* Grid para Itens de Fauna */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* 2 a 4 colunas dependendo do espaço */
+    gap: 30px; /* Espaço entre os itens */
+    margin-top: 30px;
+}
+.grid .item {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 25px;
+    border-radius: 15px;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    transition: transform 0.3s ease;
+}
+.grid .item:hover {
+    transform: translateY(-8px); /* Efeito de "flutuar" ao passar o mouse */
+}
+.fauna-icon {
+    width: 80px; height: 80px;
+    margin-bottom: 15px;
+    object-fit: contain; /* Garante que a imagem se encaixe sem distorcer */
+}
+.grid .item h3 {
+    font-size: 1.6rem;
+    color: #b0e0e6;
+    margin-bottom: 10px;
+}
+.grid .item p {
+    font-size: 1rem;
+    line-height: 1.5;
+    opacity: 0.9;
+}
+
+
+/* FOOTER PRINCIPAL */
+.main-footer {
+    background: rgba(0, 18, 25, 0.95); /* Fundo quase opaco para contraste */
+    padding: 60px 20px 30px; /* Padding ajustado */
+    margin-top: 100px;
+    text-align: center;
+    z-index: 10;
+    position: relative;
+    box-shadow: 0 -5px 15px rgba(0,0,0,0.3); /* Sombra no topo do footer */
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    flex-wrap: wrap; /* Quebra linha em telas pequenas */
+    margin-bottom: 30px;
+}
+
+.footer-section h3 {
+    font-size: 1.8rem;
+    color: white;
+    margin-bottom: 15px;
+}
+.footer-section p {
+    max-width: 400px;
+    margin: 0 auto;
+    opacity: 0.8;
+}
+
+.footer-links a {
+    font-size: 2rem; /* Ícones maiores */
+    margin: 0 20px;
+    color: #4cc9f0;
+    transition: 0.3s ease;
+    display: inline-block; /* Permite transform */
+}
+
+.footer-links a:hover { transform: scale(1.2) translateY(-5px); color: white; }
+
+.footer-bottom {
+    margin-top: 40px;
+    font-size: 0.9rem;
+    opacity: 0.7;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 20px;
+}
+
+
+/* RESPONSIVIDADE (MEDIA QUERIES) */
+@media (max-width: 1024px) {
+    .main-header { padding: 20px 3%; }
+    .hero h1 { font-size: 3.5rem; }
+    .hero p { font-size: 1.2rem; }
+    .info-card h2 { font-size: 2rem; }
+    .info-card p, .info-card ul li { font-size: 1.05rem; }
+    .footer-content { flex-direction: column; }
+    .footer-section, .footer-links { margin-bottom: 30px; }
+}
+
+@media (max-width: 768px) {
+    .hamburger { display: block; } /* Mostra o hambúrguer */
+    .nav-menu {
+        display: none; /* Esconde o menu por padrão */
+        flex-direction: column;
+        position: absolute;
+        top: 75px; left: 0; width: 100%;
+        background: rgba(0, 18, 25, 0.98); /* Fundo quase opaco para o menu mobile */
+        padding: 20px 0;
+        text-align: center;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+    }
+    .nav-menu.active { display: flex; } /* Mostra o menu quando ativo */
+    .nav-menu a {
+        margin: 15px 0;
+        font-size: 1.3rem;
+        text-shadow: none; /* Remove sombra para melhor legibilidade */
+    }
+
+    .sunlight { width: 800px; height: 500px; filter: blur(15px); } /* Menos intenso no mobile */
+    .hero h1 { font-size: 2.8rem; }
+    .hero p { font-size: 1rem; }
+    .info-card { padding: 30px 20px; margin: 25px 0; }
+    .info-card h2 { font-size: 1.8rem; }
+    .info-card p, .info-card ul li { font-size: 0.95rem; }
+    .fauna-icon { width: 60px; height: 60px; }
+    .grid .item h3 { font-size: 1.3rem; }
+    .footer-section h3 { font-size: 1.5rem; }
+    .footer-links a { font-size: 1.7rem; margin: 0 10px; }
+}
+
+@media (max-width: 480px) {
+    .main-header { padding: 15px 3%; }
+    .logo { font-size: 1.5rem; }
+    .hamburger { font-size: 1.7rem; }
+    .hero h1 { font-size: 2.2rem; }
+    .hero p { font-size: 0.9rem; }
+    .info-card h2 { font-size: 1.5rem; }
+    .info-card p, .info-card ul li { font-size: 0.9rem; }
+    .grid { grid-template-columns: 1fr; } /* Apenas uma coluna em telas muito pequenas */
+    .fauna-icon { width: 50px; height: 50px; }
+}
