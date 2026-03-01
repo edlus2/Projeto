@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Axi Corporate | Thiago Cremasco - Estratégia e Representação</title>
+    
+    <link rel="icon" type="image/png" href="assets/img/ico.png">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
+    
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+    <a href="https://wa.me/5527999860122" class="whatsapp-float" target="_blank" aria-label="Falar pelo WhatsApp">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+    </a>
+
+    <header class="fixed w-full z-[100] bg-white/95 backdrop-blur-xl border-b border-gray-100">
+        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="logo-wrapper">
+                <a href="#inicio" class="flex flex-col items-start group">
+                    <img src="assets/img/Axis Corporate.png" alt="Axi Corporate" class="axi-logo-header">
+                </a>
+            </div>
+            
+            <nav class="hidden lg:flex items-center space-x-10 text-[11px] uppercase tracking-[0.2em] font-bold text-slate-500">
+                <a href="#inicio" class="nav-link">Início</a>
+                <a href="#expertise" class="nav-link">Expertise</a>
+                <a href="#portfolio" class="nav-link">Marcas</a>
+                <a href="#consultor" class="nav-link">Thiago</a>
+                <a href="#contato" class="btn-primary px-8 py-3 rounded-full text-white ml-4 shadow-md">Contato</a>
+            </nav>
+
+            <button id="menu-btn" class="lg:hidden p-2 focus:outline-none z-[101]">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+            </button>
+        </div>
+
+        <div id="mobile-menu" class="translate-x-full lg:hidden flex flex-col p-12 overflow-y-auto">
+            <div class="flex justify-between items-center mb-16">
+                 <img src="assets/img/Axis Corporate.png" alt="Axi Logo" class="h-10">
+                 <span class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Menu</span>
+            </div>
+            
+            <nav class="flex flex-col space-y-10 text-2xl uppercase tracking-widest font-bold text-slate-900">
+                <a href="#inicio" class="mobile-nav-link active:text-axi-blue">Início</a>
+                <a href="#expertise" class="mobile-nav-link active:text-axi-blue">Expertise</a>
+                <a href="#portfolio" class="mobile-nav-link active:text-axi-blue">Marcas</a>
+                <a href="#consultor" class="mobile-nav-link active:text-axi-blue">Thiago</a>
+                <hr class="border-slate-100">
+                <a href="#contato" class="mobile-nav-link text-axi-blue text-3xl">Contato</a>
+            </nav>
+            
+            <div class="mt-auto pt-10 text-center border-t border-slate-50">
+                 <p class="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">© 2026 Axi Corporate</p>
+            </div>
+        </div>
+    </header>
+
+    <section id="inicio" class="min-h-screen flex items-center pt-32 pb-24 md:pb-48 bg-slate-900 relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-axi-dark opacity-95"></div>
+        <div class="absolute inset-0 opacity-10 carbon-pattern"></div>
+        
+        <div class="container mx-auto px-6 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center relative z-10">
+            <div class="text-white reveal visible">
+                <div class="w-12 h-1 bg-axi-blue mb-8"></div>
+                <span class="text-axi-blue text-xs md:text-sm uppercase tracking-[0.4em] font-bold mb-6 block">Estratégia & Representação</span>
+                <h1 class="serif text-4xl md:text-7xl leading-[1.2] lg:leading-[1.1] mb-8 font-bold">
+                    Potencializando sua <br><span class="italic font-light text-axi-blue lg:text-white">presença de mercado.</span>
+                </h1>
+                <p class="text-base md:text-lg text-slate-300 max-w-lg mb-12 font-light leading-relaxed">
+                    Representação comercial para empresas líderes nos setores de hotelaria, eventos e alimentação corporativa.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4 md:gap-6">
+                    <a href="#portfolio" class="btn-primary px-10 py-4 md:py-5 rounded-full font-bold text-center text-xs uppercase tracking-widest shadow-xl">Conhecer Marcas</a>
+                    <a href="#contato" class="border border-white/20 px-10 py-4 md:py-5 rounded-full font-bold text-center text-xs text-white uppercase tracking-widest backdrop-blur-sm hover:bg-white/5 transition">Falar com Thiago</a>
+                </div>
+            </div>
+            
+            <div class="hidden lg:block reveal visible" style="transition-delay: 200ms;">
+                <div class="relative group">
+                    <div class="absolute -inset-4 bg-axi-blue/20 rounded-[3rem] blur-2xl"></div>
+                    <img src="assets/img/inicial.png" alt="Estratégia Corporativa" class="rounded-[2.5rem] shadow-2xl relative z-10 object-cover h-[550px] w-full border border-white/10">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="expertise" class="py-24 md:py-32 px-6 bg-slate-50">
+        <div class="container mx-auto">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 md:mb-20 reveal">
+                <div class="max-w-2xl">
+                    <h2 class="serif text-3xl md:text-5xl text-slate-900 mb-6 font-bold leading-tight">Tradição, Confiança e Presença de Mercado.</h2>
+                    <p class="text-slate-500 text-base md:text-lg font-light">Atuamos como parceiro estratégico, garantindo que a excelência do seu serviço seja sólidos e parcerias de longo prazo.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-6">
+                <div class="card-premium p-8 rounded-[2rem] reveal">
+                    <div class="w-14 h-14 bg-blue-50 text-axi-blue rounded-xl flex items-center justify-center mb-8">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 22v-6.57"/><path d="M12 11h.01"/><path d="M12 7h.01"/><path d="M14 15.43V22"/><path d="M15 16a5 5 0 0 0-10 0v6"/><path d="M18 22V5a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v17"/><path d="M8 11h.01"/><path d="M8 7h.01"/></svg>
+                    </div>
+                    <h3 class="serif text-xl font-bold mb-4 text-slate-800">Hospitalidade</h3>
+                    <p class="text-slate-500 text-xs leading-relaxed">Hotéis com localização estratégica.</p>
+                </div>
+
+                <div class="card-premium p-8 rounded-[2rem] reveal" style="transition-delay: 100ms;">
+                    <div class="w-14 h-14 bg-blue-50 text-axi-blue rounded-xl flex items-center justify-center mb-8">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/><circle cx="12" cy="14" r="2"/></svg>
+                    </div>
+                    <h3 class="serif text-xl font-bold mb-4 text-slate-800">Eventos Sociais e Corporativos</h3>
+                    <p class="text-slate-500 text-xs leading-relaxed">Para eventos de médio e grande porte.</p>
+                </div>
+
+                <div class="card-premium p-8 rounded-[2rem] reveal" style="transition-delay: 200ms;">
+                    <div class="w-14 h-14 bg-blue-50 text-axi-blue rounded-xl flex items-center justify-center mb-8">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Z"/></svg>
+                    </div>
+                    <h3 class="serif text-xl font-bold mb-4 text-slate-800">Alimentação Corporativa</h3>
+                    <p class="text-slate-500 text-xs leading-relaxed">Soluções em ctring e refeições para eventos e operações institucionais.</p>
+                </div>
+
+                <div class="card-premium p-8 rounded-[2rem] reveal" style="transition-delay: 300ms;">
+                    <div class="w-14 h-14 bg-blue-50 text-axi-blue rounded-xl flex items-center justify-center mb-8">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3 3"/><path d="m19 16-3 3"/><path d="M21 10V8a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h7"/><circle cx="8" cy="11" r="2"/><path d="m21 15-5-5-5 5"/></svg>
+                    </div>
+                    <h3 class="serif text-xl font-bold mb-4 text-slate-800">Audiovisual</h3>
+                    <p class="text-slate-500 text-xs leading-relaxed">Soluções para evento audiovisual, iluminação, estrutura e transmissão ao vivo.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="portfolio" class="py-24 md:py-32 bg-white">
+        <div class="container mx-auto px-6 text-center">
+            <h3 class="text-xs uppercase tracking-[0.5em] text-axi-blue font-bold mb-4 reveal">Representação Comercial</h3>
+            <h4 class="serif text-3xl md:text-4xl text-slate-800 mb-16 md:mb-20 reveal">Marcas que Confiam na Axi</h4>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-12 md:gap-16 max-w-6xl mx-auto">
+                <div class="brand-card reveal">
+                    <div class="logo-container">
+                        <img src="assets/img/Serragrande_logo.png" alt="Serra Grande Logo">
+                    </div>
+                    <span class="text-[10px] md:text-xs uppercase tracking-[0.2em] text-slate-400 font-bold">Hotel & Churrascaria</span>
+                </div>
+
+                <div class="brand-card reveal" style="transition-delay: 100ms;">
+                    <div class="logo-container">
+                        <img src="assets/img/logo_horizontal.png" alt="Grupo Neffa Logo">
+                    </div>
+                    <span class="text-[10px] md:text-xs uppercase tracking-[0.2em] text-slate-400 font-bold">Hospitalidade & Serviços</span>
+                </div>
+
+                <div class="brand-card reveal" style="transition-delay: 200ms;">
+                    <div class="logo-container">
+                        <img src="assets/img/alexcunha.png" alt="Alexis Cunha Logo">
+                    </div>
+                    <span class="text-[10px] md:text-xs uppercase tracking-[0.2em] text-slate-400 font-bold">AUDIOVISUAL / ILUMINAÇÃO / ESTRUTURA e transmissão ao vivo</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="consultor" class="py-24 md:py-32 px-6 bg-slate-50 overflow-hidden">
+        <div class="container mx-auto">
+            <div class="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
+                <div class="w-full lg:w-1/2 reveal">
+                    <div class="relative">
+                        <div class="absolute -top-4 -left-4 md:-top-6 md:-left-6 w-24 h-24 border-t-4 border-l-4 border-axi-blue"></div>
+                        <img src="assets/img/thiago.png" alt="Thiago Cremasco" class="rounded-2xl shadow-2xl w-full h-[400px] md:h-[600px] object-cover transition duration-700">
+                        <div class="absolute -bottom-6 -right-6 bg-slate-900 text-white p-6 md:p-10 rounded-2xl shadow-2xl">
+                            <span class="serif text-2xl md:text-4xl block italic font-light mb-1 text-axi-blue">Thiago</span>
+                            <span class="font-bold uppercase tracking-[0.4em] text-[10px] md:text-xs">Cremasco</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="w-full lg:w-1/2 reveal" style="transition-delay: 200ms;">
+                    <div class="w-16 h-1 bg-axi-blue mb-10 hidden lg:block"></div>
+                    <h3 class="text-axi-blue font-bold uppercase tracking-widest text-[10px] mb-4 lg:mb-6">O Consultor</h3>
+                    <h4 class="serif text-3xl md:text-5xl text-slate-900 mb-8 leading-tight font-bold">Representação que <br><span class="italic text-axi-blue lg:text-slate-900 font-light">conecta propósitos.</span></h4>
+                    <p class="text-slate-600 text-base md:text-lg mb-10 leading-relaxed font-light">
+                        Com sólida trajetória no mercado capixaba, Thiago Cremasco fundou a <strong>Axi Corporate</strong> para ser a ponte entre serviços de excelência e um mercado corporativo cada vez mais exigente.
+                    </p>
+                    <div class="grid grid-cols-2 gap-8 py-8 border-t border-slate-200">
+                        <div>
+                            <span class="block text-2xl md:text-4xl font-bold text-slate-800 serif">20+ anos</span>
+                            <span class="text-[10px] md:text-xs uppercase tracking-widest text-slate-400 font-bold">Experiência</span>
+                        </div>
+                        <div>
+                            <span class="block text-2xl md:text-4xl font-bold text-slate-800 serif">ES</span>
+                            <span class="text-[10px] md:text-xs uppercase tracking-widest text-slate-400 font-bold">Sudeste</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="contato" class="py-24 md:py-32 px-6 bg-slate-900 text-white relative">
+        <div class="container mx-auto max-w-6xl">
+            <div class="grid lg:grid-cols-2 gap-16 md:gap-20 items-center reveal">
+                <div>
+                    <h3 class="serif text-3xl md:text-5xl mb-8 leading-tight font-bold">Eleve o nível da <br><span class="text-axi-blue italic">sua marca conosco.</span></h3>
+                    <p class="text-slate-400 mb-12 text-base md:text-lg font-light">Vamos conversar sobre como a Axi Corporate pode expandir seus resultados comerciais.</p>
+                    <div class="flex items-center gap-6">
+                        <div class="w-12 h-12 bg-axi-blue text-white rounded-full flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                        </div>
+                        <p class="serif text-xl md:text-3xl font-bold">+55 27 99986-0122</p>
+                    </div>
+                </div>
+
+                <div class="bg-white/5 backdrop-blur-md p-8 md:p-12 rounded-[2.5rem] border border-white/10">
+                    <form action="https://formspree.io/f/xjgedpvj" method="POST" id="axi-form" class="space-y-6 md:space-y-8">
+                        
+                        <input type="text" name="nome" placeholder="Seu Nome" required 
+                               pattern="^[A-Za-zÀ-ÿ\s]+$" 
+                               title="Por favor, use apenas letras."
+                               class="bg-white/5 border border-white/10 rounded-2xl py-4 px-6 focus:border-axi-blue focus:outline-none transition w-full text-white">
+                        
+                        <input type="email" name="email" placeholder="E-mail" required 
+                               class="bg-white/5 border border-white/10 rounded-2xl py-4 px-6 focus:border-axi-blue focus:outline-none transition w-full text-white">
+                        
+                        <textarea name="mensagem" rows="4" placeholder="Sua Mensagem" required 
+                                  class="bg-white/5 border border-white/10 rounded-2xl py-4 px-6 focus:border-axi-blue focus:outline-none transition w-full text-white"></textarea>
+                        
+                        <input type="hidden" name="_to" value="thiago@axicorporate.com.br">
+
+                        <div class="h-captcha" data-sitekey="2df2dd52-0e82-467c-a04e-e2d06c34486a"></div>
+
+                        <button type="submit" class="btn-primary w-full py-5 rounded-full font-bold uppercase tracking-widest text-xs shadow-2xl">
+                            Solicitar Contato
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="py-16 md:py-20 bg-slate-950 text-slate-500 text-center">
+        <div class="container mx-auto px-6">
+            <div class="flex justify-center mb-8">
+                 <img src="assets/img/Axis Corporate.png" alt="Axi Corporate" class="h-10 md:h-12 brightness-0 invert opacity-40">
+            </div>
+            <p class="text-[9px] md:text-[10px] uppercase tracking-[0.4em]">© 2026 Axi Corporate Strategy. Vitória - ES.</p>
+        </div>
+    </footer>
+
+    <div id="axi-notify" class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-axi-blue text-white px-12 py-4 rounded-full font-bold shadow-2xl opacity-0 pointer-events-none transition-all duration-500 z-[200] text-sm tracking-wide">
+        Sucesso! Entraremos em contato.
+    </div>
+
+    <script src="assets/js/main.js"></script>
+</body>
+</html>
