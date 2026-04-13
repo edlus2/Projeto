@@ -11,35 +11,31 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
         .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
-        .hidden-content { display: none; }
-        
-        /* Transições suaves */
+        .hidden-content { display: none !important; }
         .sidebar-transition { transition: all 0.3s ease; }
-        
-        @media (max-width: 1024px) {
-            .sidebar-hidden { transform: translateX(-100%); }
-        }
+        @media (max-width: 1024px) { .sidebar-hidden { transform: translateX(-100%); } }
     </style>
 </head>
 <body class="min-h-screen overflow-x-hidden">
 
+    <!-- Sistema de Notificação (Toast) -->
+    <div id="toast" class="fixed top-5 right-5 z-[200] transform translate-x-full transition-transform duration-300">
+        <div id="toast-content" class="px-6 py-3 rounded-xl shadow-lg text-white font-bold flex items-center gap-2">
+            <span id="toast-msg"></span>
+        </div>
+    </div>
+
     <!-- Tela de Login/Senha -->
-    <div id="login-screen" class="fixed inset-0 z-[100] bg-indigo-600 flex items-center justify-center p-4">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center">
-            <div class="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i data-lucide="lock" class="text-indigo-600"></i>
+    <div id="login-screen" class="fixed inset-0 z-[100] bg-indigo-600 flex items-center justify-center p-4 text-white">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl max-sm w-full text-center">
+            <div class="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-600">
+                <i data-lucide="lock"></i>
             </div>
             <h2 class="text-2xl font-bold text-slate-800 mb-2">Acesso Privado</h2>
-            <p class="text-slate-500 mb-6 text-sm">Digite a senha para acessar o controle financeiro.</p>
-            
-            <input type="password" id="password-input" 
-                class="w-full p-3 border border-slate-300 rounded-xl mb-4 text-center text-xl tracking-widest outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="****">
-            
-            <button id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all shadow-md">
-                Entrar
-            </button>
-            <p id="login-error" class="text-red-500 text-sm mt-3 hidden">Senha incorreta.</p>
+            <p class="text-slate-500 mb-6 text-sm">Introduza a palavra-passe para aceder ao controlo financeiro.</p>
+            <input type="password" id="password-input" class="w-full p-3 border border-slate-300 rounded-xl mb-4 text-center text-xl tracking-widest outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800" placeholder="****">
+            <button id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-md transition-all">Entrar</button>
+            <p id="login-error" class="text-red-500 text-sm mt-3 hidden">Palavra-passe incorreta.</p>
         </div>
     </div>
 
@@ -50,80 +46,54 @@
         <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-slate-300 sidebar-transition sidebar-hidden lg:relative lg:transform-none">
             <div class="p-6">
                 <div class="flex items-center gap-3 text-white mb-10">
-                    <div class="bg-indigo-600 p-2 rounded-lg">
-                        <i data-lucide="wallet" size="20"></i>
-                    </div>
-                    <span class="font-bold text-lg tracking-tight">Nosso Controle</span>
+                    <div class="bg-indigo-600 p-2 rounded-lg"><i data-lucide="wallet" size="20"></i></div>
+                    <span class="font-bold text-lg">Nosso Controle</span>
                 </div>
-
                 <nav class="space-y-2">
-                    <button onclick="window.switchTab('current')" id="tab-current" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-600 text-white transition-all shadow-lg shadow-indigo-900/20">
-                        <i data-lucide="layout-dashboard" size="18"></i>
-                        <span class="font-medium">Mês Atual</span>
-                    </button>
-                    <button onclick="window.switchTab('history')" id="tab-history" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 transition-all">
-                        <i data-lucide="history" size="18"></i>
-                        <span class="font-medium">Histórico</span>
-                    </button>
+                    <button onclick="window.switchTab('current')" id="tab-current" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-600 text-white shadow-lg transition-all"><i data-lucide="layout-dashboard" size="18"></i><span>Mês Atual</span></button>
+                    <button onclick="window.switchTab('history')" id="tab-history" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 transition-all"><i data-lucide="history" size="18"></i><span>Histórico</span></button>
                 </nav>
             </div>
-
             <div class="absolute bottom-6 left-6 right-6">
-                <div id="user-status" class="flex items-center gap-2 text-xs bg-slate-800 p-3 rounded-xl border border-slate-700">
-                    <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                    Conectado ao Banco
+                <div id="user-status" class="flex flex-col gap-1 bg-slate-800 p-3 rounded-xl border border-slate-700">
+                    <div class="flex items-center gap-2 text-xs">
+                        <div id="status-dot" class="w-2 h-2 rounded-full bg-yellow-500"></div>
+                        <span id="status-text">Conectando...</span>
+                    </div>
                 </div>
             </div>
         </aside>
 
-        <!-- Overlay para mobile -->
+        <!-- Overlay mobile -->
         <div id="sidebar-overlay" onclick="window.toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden"></div>
 
-        <!-- Área Principal -->
         <div class="flex-1 flex flex-col min-w-0 bg-slate-50">
-            
-            <!-- Navbar Superior (Mobile) -->
             <header class="bg-white border-b border-slate-200 p-4 lg:hidden flex justify-between items-center">
-                <button onclick="window.toggleSidebar()" class="p-2 text-slate-600">
-                    <i data-lucide="menu"></i>
-                </button>
+                <button onclick="window.toggleSidebar()" class="p-2 text-slate-600"><i data-lucide="menu"></i></button>
                 <h1 class="font-bold text-slate-800">Nosso Controle</h1>
                 <div class="w-10"></div>
             </header>
 
-            <!-- Título da Aba -->
             <header class="p-6 lg:p-10 pb-2">
                 <h2 id="current-tab-title" class="text-2xl lg:text-3xl font-bold text-slate-800">Mês Atual</h2>
                 <p id="current-tab-subtitle" class="text-slate-500 mt-1">Gerencie os gastos de <span id="display-month-name" class="capitalize font-semibold text-indigo-600">...</span></p>
             </header>
 
-            <!-- Seção Dinâmica de Conteúdo -->
             <div class="p-6 lg:p-10 space-y-8">
-                
-                <!-- Filtro de Histórico (Aparece apenas na aba histórico) -->
                 <div id="history-filter" class="hidden glass-card p-4 rounded-2xl border border-slate-200 flex flex-wrap items-center gap-4">
-                    <div class="flex items-center gap-2 text-slate-600 font-medium">
-                        <i data-lucide="calendar" size="18"></i>
-                        <span>Selecione o Mês:</span>
-                    </div>
-                    <input type="month" id="filter-month" class="bg-white border border-slate-300 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                    <div class="flex items-center gap-2 text-slate-600 font-medium"><i data-lucide="calendar" size="18"></i><span>Filtrar Mês:</span></div>
+                    <input type="month" id="filter-month" class="bg-white border border-slate-300 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
 
                 <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                    
-                    <!-- Lançamento (Colun 1 e 2 no Desktop) -->
                     <div class="xl:col-span-2 space-y-8">
-                        
-                        <!-- Formulário (Apenas na aba Mês Atual) -->
                         <section id="form-section" class="glass-card p-6 rounded-2xl shadow-sm border border-slate-200">
-                            <h3 class="text-lg font-bold mb-4 text-slate-800 flex items-center gap-2">
-                                <i data-lucide="plus-circle" class="text-indigo-600"></i> Novo Lançamento
-                            </h3>
+                            <h3 class="text-lg font-bold mb-4 text-slate-800 flex items-center gap-2"><i data-lucide="plus-circle" class="text-indigo-600"></i> Novo Lançamento</h3>
                             <form id="expense-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <input type="hidden" id="edit-id">
                                 <div class="space-y-1">
                                     <label class="text-xs font-bold text-slate-500 uppercase">Conta</label>
-                                    <input type="text" id="description" required class="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500" placeholder="Ex: Aluguel">
+                                    <input type="text" id="description" required class="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500" placeholder="Ex: Luz">
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-xs font-bold text-slate-500 uppercase">Data</label>
@@ -131,29 +101,28 @@
                                 </div>
                                 <div class="space-y-1 md:col-span-2">
                                     <label class="text-xs font-bold text-slate-500 uppercase">Observação</label>
-                                    <input type="text" id="observation" class="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500" placeholder="Algum detalhe?">
+                                    <input type="text" id="observation" class="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500" placeholder="Opcional">
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-xs font-bold text-slate-500 uppercase">Valor (R$)</label>
-                                    <input type="number" step="0.01" id="amount" required class="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-bold text-indigo-600 text-lg" placeholder="0,00">
+                                    <input type="number" step="0.01" id="amount" required class="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-bold text-indigo-600" placeholder="0,00">
                                 </div>
                                 <div class="flex items-end">
-                                    <button type="submit" id="submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 transition-all">
-                                        <i data-lucide="save" size="18"></i> Salvar
+                                    <button type="submit" id="submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all">
+                                        <i data-lucide="save" size="18"></i> <span>Salvar</span>
                                     </button>
                                 </div>
                                 <button type="button" id="cancel-edit" class="hidden md:col-span-2 bg-slate-200 text-slate-600 font-bold py-2 rounded-xl">Cancelar Edição</button>
                             </form>
                         </section>
 
-                        <!-- Lista de Itens -->
                         <section class="glass-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                             <div class="p-6 border-b border-slate-100 flex justify-between items-center">
                                 <h3 class="text-lg font-bold text-slate-800">Lançamentos</h3>
-                                <div class="bg-indigo-50 px-3 py-1 rounded-full text-xs font-bold text-indigo-600 uppercase tracking-wider" id="items-count">0 itens</div>
+                                <div class="bg-indigo-50 px-3 py-1 rounded-full text-xs font-bold text-indigo-600" id="items-count">0 itens</div>
                             </div>
                             <div class="overflow-x-auto">
-                                <table class="w-full text-left">
+                                <table class="w-full text-left min-w-[500px]">
                                     <thead class="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
                                         <tr>
                                             <th class="py-4 px-6">Descrição</th>
@@ -165,28 +134,20 @@
                                     <tbody id="expense-list" class="text-sm divide-y divide-slate-50"></tbody>
                                 </table>
                                 <div id="empty-state" class="hidden py-16 text-center text-slate-400">
-                                    <i data-lucide="info" class="mx-auto mb-3 opacity-20" size="48"></i>
                                     <p>Nenhum registro encontrado.</p>
                                 </div>
                             </div>
                         </section>
                     </div>
 
-                    <!-- Resumo (Coluna Lateral no Desktop) -->
                     <div class="space-y-8">
                         <section class="glass-card p-6 rounded-2xl shadow-sm border border-slate-200">
-                            <h3 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6">Total do Mês</h3>
-                            <div class="text-4xl font-bold text-slate-800 mb-2" id="total-month">R$ 0,00</div>
-                            <div class="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                                <div class="h-full bg-indigo-500 w-1/3"></div>
-                            </div>
+                            <h3 class="text-sm font-bold text-slate-400 uppercase mb-4">Total do Mês</h3>
+                            <div class="text-4xl font-bold text-slate-800" id="total-month">R$ 0,00</div>
                         </section>
-
                         <section class="glass-card p-6 rounded-2xl shadow-sm border border-slate-200">
-                            <h3 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6 text-center">Divisão de Gastos</h3>
-                            <div class="relative h-64">
-                                <canvas id="expenseChart"></canvas>
-                            </div>
+                            <h3 class="text-sm font-bold text-slate-400 uppercase mb-4 text-center">Divisão</h3>
+                            <div class="relative h-64"><canvas id="expenseChart"></canvas></div>
                         </section>
                     </div>
                 </div>
@@ -201,10 +162,10 @@
 
         // --- Configurações Iniciais ---
         const MASTER_PASSWORD = "2204";
-        let activeTab = 'current'; // 'current' ou 'history'
-        let currentMonthFilter = new Date().toISOString().slice(0, 7); // Mês atual fixo para aba atual
+        let activeTab = 'current';
+        let currentMonthFilter = new Date().toISOString().slice(0, 7);
 
-        // --- Firebase Config ---
+        // --- Firebase Config (Do código original que funcionava) ---
         const myFirebaseConfig = {
             apiKey: "AIzaSyA18U7xgZ6GWBnHnfmR4d9q-OeBg6OWL_c",
             authDomain: "controle-financeiro-fami-2e96f.firebaseapp.com",
@@ -227,106 +188,104 @@
         let expenses = [];
         let myChart = null;
 
-        // Elementos DOM
-        const elements = {
+        const el = {
             loginScreen: document.getElementById('login-screen'),
             mainContent: document.getElementById('main-content'),
             passInput: document.getElementById('password-input'),
-            loginBtn: document.getElementById('login-btn'),
             loginError: document.getElementById('login-error'),
-            formSection: document.getElementById('form-section'),
-            historyFilter: document.getElementById('history-filter'),
-            tabTitle: document.getElementById('current-tab-title'),
-            tabSubtitle: document.getElementById('current-tab-subtitle'),
-            monthDisplay: document.getElementById('display-month-name'),
-            filterInput: document.getElementById('filter-month'),
+            statusDot: document.getElementById('status-dot'),
+            statusText: document.getElementById('status-text'),
             list: document.getElementById('expense-list'),
             total: document.getElementById('total-month'),
-            emptyState: document.getElementById('empty-state'),
             itemsCount: document.getElementById('items-count'),
-            sidebar: document.getElementById('sidebar'),
-            overlay: document.getElementById('sidebar-overlay'),
-            tabBtns: {
-                current: document.getElementById('tab-current'),
-                history: document.getElementById('tab-history')
-            }
+            submitBtn: document.getElementById('submit-btn'),
+            toast: document.getElementById('toast'),
+            toastMsg: document.getElementById('toast-msg'),
+            toastContent: document.getElementById('toast-content')
         };
 
-        // --- Lógica de Interface ---
+        // --- Notificações ---
+        function showToast(msg, isError = false) {
+            el.toastMsg.innerText = msg;
+            el.toastContent.className = `px-6 py-3 rounded-xl shadow-lg text-white font-bold flex items-center gap-2 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+            el.toast.classList.remove('translate-x-full');
+            setTimeout(() => el.toast.classList.add('translate-x-full'), 3000);
+        }
 
+        // --- Interface ---
         window.toggleSidebar = () => {
-            elements.sidebar.classList.toggle('sidebar-hidden');
-            elements.overlay.classList.toggle('hidden');
+            document.getElementById('sidebar').classList.toggle('sidebar-hidden');
+            document.getElementById('sidebar-overlay').classList.toggle('hidden');
         };
 
         window.switchTab = (tab) => {
             activeTab = tab;
+            const btnCurrent = document.getElementById('tab-current');
+            const btnHistory = document.getElementById('tab-history');
+            const activeClass = "w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-600 text-white shadow-lg transition-all";
+            const inactiveClass = "w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 transition-all text-slate-300";
             
-            // Resetar estilos dos botões
-            Object.keys(elements.tabBtns).forEach(key => {
-                elements.tabBtns[key].className = "w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 transition-all text-slate-300";
-            });
-
-            // Aplicar estilo ativo
-            elements.tabBtns[tab].className = "w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-600 text-white transition-all shadow-lg shadow-indigo-900/20";
-
-            if (tab === 'current') {
-                elements.formSection.classList.remove('hidden');
-                elements.historyFilter.classList.add('hidden');
-                elements.tabTitle.innerText = "Mês Atual";
-                elements.tabSubtitle.innerHTML = `Gerencie os gastos de <span id="display-month-name" class="capitalize font-semibold text-indigo-600">${formatMonthName(currentMonthFilter)}</span>`;
-                // No mobile, fecha a sidebar ao trocar
-                if (window.innerWidth < 1024) window.toggleSidebar();
-            } else {
-                elements.formSection.classList.add('hidden');
-                elements.historyFilter.classList.remove('hidden');
-                elements.tabTitle.innerText = "Histórico";
-                elements.tabSubtitle.innerText = "Consulte lançamentos de meses passados.";
-                if (window.innerWidth < 1024) window.toggleSidebar();
-            }
+            btnCurrent.className = tab === 'current' ? activeClass : inactiveClass;
+            btnHistory.className = tab === 'history' ? activeClass : inactiveClass;
+            
+            document.getElementById('form-section').classList.toggle('hidden', tab !== 'current');
+            document.getElementById('history-filter').classList.toggle('hidden', tab !== 'history');
+            document.getElementById('current-tab-title').innerText = tab === 'current' ? 'Mês Atual' : 'Histórico';
+            
+            if (window.innerWidth < 1024) window.toggleSidebar();
             render();
-            lucide.createIcons();
         };
 
-        function formatMonthName(monthStr) {
-            const date = new Date(monthStr + "-02"); // Dia 02 para evitar timezone
-            return date.toLocaleDateString('pt-br', { month: 'long', year: 'numeric' });
-        }
-
-        // --- Lógica de Login ---
-        elements.loginBtn.addEventListener('click', () => {
-            if (elements.passInput.value === MASTER_PASSWORD) {
+        // --- Login ---
+        const handleLogin = () => {
+            if (el.passInput.value === MASTER_PASSWORD) {
                 sessionStorage.setItem('authenticated', 'true');
                 unlock();
             } else {
-                elements.loginError.classList.remove('hidden');
-                elements.passInput.value = '';
+                el.loginError.classList.remove('hidden');
+                el.passInput.value = '';
+                el.passInput.focus();
             }
-        });
+        };
 
-        elements.passInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') elements.loginBtn.click(); });
+        document.getElementById('login-btn').addEventListener('click', handleLogin);
+        el.passInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleLogin(); });
 
         function unlock() {
-            elements.loginScreen.classList.add('hidden');
-            elements.mainContent.classList.remove('hidden-content');
+            el.loginScreen.classList.add('hidden');
+            el.mainContent.classList.remove('hidden-content');
             lucide.createIcons();
             initApp();
         }
 
         if (sessionStorage.getItem('authenticated') === 'true') unlock();
 
-        // --- Firebase & Dados ---
+        // --- Lógica de Banco de Dados (Parte restaurada) ---
 
         function initApp() {
             onAuthStateChanged(auth, (u) => {
                 user = u;
-                if (user) loadData();
+                if (user) {
+                    el.statusDot.className = "w-2 h-2 rounded-full bg-green-500 animate-pulse";
+                    el.statusText.innerText = "Conectado ao Banco";
+                    loadData();
+                } else {
+                    el.statusDot.className = "w-2 h-2 rounded-full bg-red-500";
+                    el.statusText.innerText = "Desconectado";
+                }
             });
             
             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token && isCanvas) {
-                signInWithCustomToken(auth, __initial_auth_token);
+                signInWithCustomToken(auth, __initial_auth_token).catch(err => {
+                    console.error("Custom token error:", err);
+                    showToast("Erro ao autenticar", true);
+                });
             } else {
-                signInAnonymously(auth);
+                signInAnonymously(auth).catch(err => {
+                    console.error("Anonymous auth error:", err);
+                    showToast("Erro de conexão", true);
+                    el.statusText.innerText = "Erro de Ligação";
+                });
             }
         }
 
@@ -335,94 +294,21 @@
             onSnapshot(colRef, (snapshot) => {
                 expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 render();
+            }, (err) => {
+                console.error("Firestore Error:", err);
+                showToast("Erro ao carregar dados", true);
             });
         }
 
-        function render() {
-            const targetMonth = activeTab === 'current' ? currentMonthFilter : elements.filterInput.value;
-            
-            if (activeTab === 'history' && !targetMonth) {
-                elements.list.innerHTML = '';
-                elements.emptyState.classList.remove('hidden');
-                elements.total.innerText = "Selecione um mês";
-                if (myChart) myChart.destroy();
-                return;
-            }
-
-            const filtered = expenses.filter(exp => exp.date.startsWith(targetMonth))
-                                    .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-            elements.list.innerHTML = '';
-            let total = 0;
-
-            if (filtered.length === 0) {
-                elements.emptyState.classList.remove('hidden');
-            } else {
-                elements.emptyState.classList.add('hidden');
-                filtered.forEach(exp => {
-                    total += exp.amount;
-                    const row = document.createElement('tr');
-                    row.className = "hover:bg-slate-50 transition-colors";
-                    row.innerHTML = `
-                        <td class="py-4 px-6 font-semibold text-slate-700">
-                            ${exp.description}
-                            <div class="text-[10px] text-slate-400 font-normal mt-0.5">${exp.observation || ''}</div>
-                        </td>
-                        <td class="py-4 px-2 text-slate-500">${exp.date.split('-').reverse().join('/')}</td>
-                        <td class="py-4 px-2 text-right font-bold text-slate-800">R$ ${exp.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                        <td class="py-4 px-6 text-center space-x-2">
-                            <button onclick="window.editItem('${exp.id}')" class="text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg transition-all"><i data-lucide="edit-3" size="16"></i></button>
-                            <button onclick="window.removeItem('${exp.id}')" class="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-all"><i data-lucide="trash-2" size="16"></i></button>
-                        </td>
-                    `;
-                    elements.list.appendChild(row);
-                });
-            }
-
-            elements.total.innerText = `R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-            elements.itemsCount.innerText = `${filtered.length} itens`;
-            updateChart(filtered);
-            lucide.createIcons();
-        }
-
-        function updateChart(data) {
-            const ctx = document.getElementById('expenseChart').getContext('2d');
-            const summary = data.reduce((acc, curr) => {
-                acc[curr.description] = (acc[curr.description] || 0) + curr.amount;
-                return acc;
-            }, {});
-
-            const labels = Object.keys(summary);
-            const values = Object.values(summary);
-
-            if (myChart) myChart.destroy();
-            if (labels.length === 0) return;
-
-            myChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: values,
-                        backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'],
-                        borderWidth: 0,
-                        hoverOffset: 20
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom', labels: { boxWidth: 10, padding: 20, font: { size: 10, family: 'Inter' } } }
-                    },
-                    cutout: '75%'
-                }
-            });
-        }
-
-        // --- Eventos de Formulário ---
-        document.getElementById('expense-form').addEventListener('submit', async (e) => {
+        async function saveExpense(e) {
             e.preventDefault();
+            if (!user) return showToast("Aguarde a conexão...", true);
+            
+            const btnText = el.submitBtn.querySelector('span');
+            const originalText = btnText.innerText;
+            btnText.innerText = "Salvando...";
+            el.submitBtn.disabled = true;
+
             const editId = document.getElementById('edit-id').value;
             const data = {
                 description: document.getElementById('description').value,
@@ -435,30 +321,92 @@
             try {
                 if (editId) {
                     await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', editId), data);
+                    showToast("Atualizado com sucesso!");
                     resetForm();
                 } else {
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'expenses'), { ...data, createdAt: new Date().toISOString() });
+                    showToast("Salvo com sucesso!");
                     e.target.reset();
                 }
-            } catch (err) { console.error(err); }
-        });
+            } catch (err) {
+                console.error(err);
+                showToast("Erro ao salvar", true);
+            } finally {
+                btnText.innerText = originalText;
+                el.submitBtn.disabled = false;
+            }
+        }
 
-        window.removeItem = async (id) => {
-            if (confirm("Excluir conta?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', id));
+        function render() {
+            const filterInput = document.getElementById('filter-month');
+            if (!filterInput.value) filterInput.value = currentMonthFilter;
+            
+            const target = activeTab === 'current' ? currentMonthFilter : filterInput.value;
+            const filtered = expenses
+                .filter(ex => ex.date && ex.date.startsWith(target))
+                .sort((a,b) => new Date(a.date) - new Date(b.date));
+            
+            el.list.innerHTML = '';
+            let total = 0;
+            
+            if (filtered.length === 0) {
+                document.getElementById('empty-state').classList.remove('hidden');
+            } else {
+                document.getElementById('empty-state').classList.add('hidden');
+                filtered.forEach(ex => {
+                    total += ex.amount;
+                    const row = document.createElement('tr');
+                    row.className = "hover:bg-slate-50 transition-colors";
+                    row.innerHTML = `
+                        <td class="py-4 px-6 font-semibold">${ex.description}<div class="text-[10px] text-slate-400">${ex.observation || ''}</div></td>
+                        <td class="py-4 px-2 text-slate-500">${ex.date.split('-').reverse().join('/')}</td>
+                        <td class="py-4 px-2 text-right font-bold">R$ ${ex.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                        <td class="py-4 px-6 text-center space-x-2">
+                            <button onclick="window.editItem('${ex.id}')" class="text-indigo-600 p-2 hover:bg-indigo-50 rounded-lg"><i data-lucide="edit-3" size="16"></i></button>
+                            <button onclick="window.removeItem('${ex.id}')" class="text-red-500 p-2 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" size="16"></i></button>
+                        </td>`;
+                    el.list.appendChild(row);
+                });
+            }
+            el.total.innerText = `R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+            el.itemsCount.innerText = `${filtered.length} itens`;
+            updateChart(filtered);
+            lucide.createIcons();
+            
+            const dateObj = new Date(target + "-02");
+            document.getElementById('display-month-name').innerText = dateObj.toLocaleDateString('pt-br', { month: 'long', year: 'numeric' });
+        }
+
+        function updateChart(data) {
+            const ctx = document.getElementById('expenseChart').getContext('2d');
+            const summary = data.reduce((a, c) => { a[c.description] = (a[c.description] || 0) + c.amount; return a; }, {});
+            if (myChart) myChart.destroy();
+            if (Object.keys(summary).length === 0) return;
+            
+            myChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(summary),
+                    datasets: [{ data: Object.values(summary), backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'], borderWidth: 0 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }, cutout: '75%' }
+            });
+        }
+
+        window.removeItem = async (id) => { 
+            if (confirm("Excluir?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', id)); 
         };
 
         window.editItem = (id) => {
-            const exp = expenses.find(e => e.id === id);
-            if (exp) {
-                // Ao editar, forçamos a volta para a aba de Lançamentos
+            const ex = expenses.find(e => e.id === id);
+            if (ex) {
                 if (activeTab !== 'current') window.switchTab('current');
-                
-                document.getElementById('description').value = exp.description;
-                document.getElementById('date').value = exp.date;
-                document.getElementById('observation').value = exp.observation;
-                document.getElementById('amount').value = exp.amount;
-                document.getElementById('edit-id').value = exp.id;
-                document.getElementById('submit-btn').innerHTML = '<i data-lucide="refresh-cw" size="18"></i> Atualizar';
+                document.getElementById('description').value = ex.description;
+                document.getElementById('date').value = ex.date;
+                document.getElementById('observation').value = ex.observation;
+                document.getElementById('amount').value = ex.amount;
+                document.getElementById('edit-id').value = ex.id;
+                el.submitBtn.querySelector('span').innerText = "Atualizar";
                 document.getElementById('cancel-edit').classList.remove('hidden');
                 lucide.createIcons();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -468,19 +416,16 @@
         function resetForm() {
             document.getElementById('expense-form').reset();
             document.getElementById('edit-id').value = '';
-            document.getElementById('submit-btn').innerHTML = '<i data-lucide="save" size="18"></i> Salvar';
+            el.submitBtn.querySelector('span').innerText = "Salvar";
             document.getElementById('cancel-edit').classList.add('hidden');
             lucide.createIcons();
         }
 
+        document.getElementById('expense-form').addEventListener('submit', saveExpense);
         document.getElementById('cancel-edit').addEventListener('click', resetForm);
-        elements.filterInput.addEventListener('change', render);
-
-        // Inicializar ícones
-        lucide.createIcons();
+        document.getElementById('filter-month').addEventListener('change', render);
         
-        // Ajustar nome do mês inicial
-        elements.monthDisplay.innerText = formatMonthName(currentMonthFilter);
+        lucide.createIcons();
     </script>
 </body>
 </html>
