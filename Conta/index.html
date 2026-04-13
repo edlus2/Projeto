@@ -11,122 +11,179 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
         .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        /* Estilo para esconder o conteúdo antes da senha */
+        .hidden-content { display: none; }
     </style>
 </head>
 <body class="min-h-screen pb-12">
 
-    <!-- Header -->
-    <header class="bg-indigo-600 text-white py-6 shadow-lg mb-8">
-        <div class="container mx-auto px-4 flex justify-between items-center">
-            <div>
-                <h1 class="text-2xl font-bold flex items-center gap-2">
-                    <i data-lucide="wallet"></i> Nosso Controle Financeiro
-                </h1>
-                <p class="text-indigo-100 text-sm">Gestão compartilhada de contas</p>
+    <!-- Tela de Login/Senha -->
+    <div id="login-screen" class="fixed inset-0 z-[100] bg-indigo-600 flex items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center">
+            <div class="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i data-lucide="lock" class="text-indigo-600"></i>
             </div>
-            <div id="user-status" class="text-xs bg-indigo-500 px-3 py-1 rounded-full text-white">
-                Verificando conexão...
-            </div>
-        </div>
-    </header>
-
-    <main class="container mx-auto px-4">
-        
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <h2 class="text-2xl font-bold text-slate-800 mb-2">Acesso Privado</h2>
+            <p class="text-slate-500 mb-6 text-sm">Digite a senha para acessar o controle financeiro.</p>
             
-            <!-- Formulário -->
-            <section class="glass-card p-6 rounded-2xl shadow-sm border border-slate-200">
-                <h2 class="text-lg font-semibold mb-4 text-slate-800 flex items-center gap-2">
-                    <i data-lucide="plus-circle" class="text-indigo-600"></i> Adicionar Nova Conta
-                </h2>
-                
-                <form id="expense-form" class="space-y-4">
-                    <input type="hidden" id="edit-id">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-slate-600 mb-1">O que pagar?</label>
-                            <input type="text" id="description" required class="w-full p-2.5 rounded-lg border border-slate-300 outline-none" placeholder="Ex: Luz">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-600 mb-1">Vencimento</label>
-                            <input type="date" id="date" required class="w-full p-2.5 rounded-lg border border-slate-300 outline-none">
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-slate-600 mb-1">Observação</label>
-                        <input type="text" id="observation" class="w-full p-2.5 rounded-lg border border-slate-300 outline-none" placeholder="Opcional">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-slate-600 mb-1">Valor (R$)</label>
-                        <input type="number" step="0.01" id="amount" required class="w-full p-2.5 rounded-lg border border-slate-300 outline-none" placeholder="0,00">
-                    </div>
-                    
-                    <button type="submit" id="submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-md flex items-center justify-center gap-2">
-                        <i data-lucide="save"></i> Salvar Conta
-                    </button>
-                    <button type="button" id="cancel-edit" class="hidden w-full bg-slate-200 text-slate-700 font-bold py-2 rounded-xl mt-2">
-                        Cancelar Edição
-                    </button>
-                </form>
-            </section>
-
-            <!-- Gráfico -->
-            <section class="glass-card p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center">
-                <h2 class="text-lg font-semibold mb-4 text-slate-800 w-full flex items-center gap-2">
-                    <i data-lucide="pie-chart" class="text-indigo-600"></i> Resumo Visual
-                </h2>
-                <div class="w-full h-64 relative">
-                    <canvas id="expenseChart"></canvas>
-                </div>
-                <div class="mt-4 text-center">
-                    <p class="text-slate-500 text-sm">Total do Mês</p>
-                    <p id="total-month" class="text-3xl font-bold text-indigo-600">R$ 0,00</p>
-                </div>
-            </section>
+            <input type="password" id="password-input" 
+                class="w-full p-3 border border-slate-300 rounded-xl mb-4 text-center text-xl tracking-widest outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="****">
+            
+            <button id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all shadow-md">
+                Entrar
+            </button>
+            <p id="login-error" class="text-red-500 text-sm mt-3 hidden">Senha incorreta. Tente novamente.</p>
         </div>
+    </div>
 
-        <!-- Filtro e Lista -->
-        <section class="glass-card p-6 rounded-2xl shadow-sm border border-slate-200">
-            <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                <h2 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
-                    <i data-lucide="list" class="text-indigo-600"></i> Histórico de Contas
-                </h2>
-                <div class="flex items-center gap-3 bg-slate-100 p-2 rounded-xl">
-                    <label class="text-sm font-medium text-slate-600">Mês:</label>
-                    <input type="month" id="filter-month" class="bg-white border border-slate-300 rounded-lg p-1 text-sm outline-none">
+    <!-- Conteúdo Principal (Envolvido em uma div para controle de visibilidade) -->
+    <div id="main-content" class="hidden-content">
+        <!-- Header -->
+        <header class="bg-indigo-600 text-white py-6 shadow-lg mb-8">
+            <div class="container mx-auto px-4 flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold flex items-center gap-2">
+                        <i data-lucide="wallet"></i> Nosso Controle Financeiro
+                    </h1>
+                    <p class="text-indigo-100 text-sm">Gestão compartilhada de contas</p>
+                </div>
+                <div id="user-status" class="text-xs bg-indigo-500 px-3 py-1 rounded-full text-white">
+                    Verificando conexão...
                 </div>
             </div>
+        </header>
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-left">
-                    <thead>
-                        <tr class="border-b border-slate-200 text-slate-400 text-sm">
-                            <th class="py-4 px-2">Conta</th>
-                            <th class="py-4 px-2">Data</th>
-                            <th class="py-4 px-2">Obs</th>
-                            <th class="py-4 px-2 text-right">Valor</th>
-                            <th class="py-4 px-2 text-center">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="expense-list"></tbody>
-                </table>
-                <div id="empty-state" class="hidden py-12 text-center text-slate-400">
-                    <p>Nenhuma conta encontrada para este mês.</p>
-                </div>
+        <main class="container mx-auto px-4">
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                
+                <!-- Formulário -->
+                <section class="glass-card p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-lg font-semibold mb-4 text-slate-800 flex items-center gap-2">
+                        <i data-lucide="plus-circle" class="text-indigo-600"></i> Adicionar Nova Conta
+                    </h2>
+                    
+                    <form id="expense-form" class="space-y-4">
+                        <input type="hidden" id="edit-id">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-1">O que pagar?</label>
+                                <input type="text" id="description" required class="w-full p-2.5 rounded-lg border border-slate-300 outline-none" placeholder="Ex: Luz">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-1">Vencimento</label>
+                                <input type="date" id="date" required class="w-full p-2.5 rounded-lg border border-slate-300 outline-none">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1">Observação</label>
+                            <input type="text" id="observation" class="w-full p-2.5 rounded-lg border border-slate-300 outline-none" placeholder="Opcional">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1">Valor (R$)</label>
+                            <input type="number" step="0.01" id="amount" required class="w-full p-2.5 rounded-lg border border-slate-300 outline-none" placeholder="0,00">
+                        </div>
+                        
+                        <button type="submit" id="submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-md flex items-center justify-center gap-2">
+                            <i data-lucide="save"></i> Salvar Conta
+                        </button>
+                        <button type="button" id="cancel-edit" class="hidden w-full bg-slate-200 text-slate-700 font-bold py-2 rounded-xl mt-2">
+                            Cancelar Edição
+                        </button>
+                    </form>
+                </section>
+
+                <!-- Gráfico -->
+                <section class="glass-card p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center">
+                    <h2 class="text-lg font-semibold mb-4 text-slate-800 w-full flex items-center gap-2">
+                        <i data-lucide="pie-chart" class="text-indigo-600"></i> Resumo Visual
+                    </h2>
+                    <div class="w-full h-64 relative">
+                        <canvas id="expenseChart"></canvas>
+                    </div>
+                    <div class="mt-4 text-center">
+                        <p class="text-slate-500 text-sm">Total do Mês</p>
+                        <p id="total-month" class="text-3xl font-bold text-indigo-600">R$ 0,00</p>
+                    </div>
+                </section>
             </div>
-        </section>
-    </main>
+
+            <!-- Filtro e Lista -->
+            <section class="glass-card p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                    <h2 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="list" class="text-indigo-600"></i> Histórico de Contas
+                    </h2>
+                    <div class="flex items-center gap-3 bg-slate-100 p-2 rounded-xl">
+                        <label class="text-sm font-medium text-slate-600">Mês:</label>
+                        <input type="month" id="filter-month" class="bg-white border border-slate-300 rounded-lg p-1 text-sm outline-none">
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-slate-400 text-sm">
+                                <th class="py-4 px-2">Conta</th>
+                                <th class="py-4 px-2">Data</th>
+                                <th class="py-4 px-2">Obs</th>
+                                <th class="py-4 px-2 text-right">Valor</th>
+                                <th class="py-4 px-2 text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expense-list"></tbody>
+                    </table>
+                    <div id="empty-state" class="hidden py-12 text-center text-slate-400">
+                        <p>Nenhuma conta encontrada para este mês.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // ==========================================
-        // DADOS DO SEU FIREBASE CONFIGURADOS
-        // ==========================================
+        // --- Lógica de Senha ---
+        const MASTER_PASSWORD = "2204";
+        const loginScreen = document.getElementById('login-screen');
+        const mainContent = document.getElementById('main-content');
+        const passwordInput = document.getElementById('password-input');
+        const loginBtn = document.getElementById('login-btn');
+        const loginError = document.getElementById('login-error');
+
+        function unlock() {
+            loginScreen.classList.add('hidden');
+            mainContent.classList.remove('hidden-content');
+            lucide.createIcons(); // Garante que os ícones do conteúdo apareçam
+        }
+
+        loginBtn.addEventListener('click', () => {
+            if (passwordInput.value === MASTER_PASSWORD) {
+                sessionStorage.setItem('authenticated', 'true');
+                unlock();
+            } else {
+                loginError.classList.remove('hidden');
+                passwordInput.value = '';
+            }
+        });
+
+        // Atalho: apertar Enter no campo de senha
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loginBtn.click();
+        });
+
+        // Verificar se já logou nesta sessão do navegador
+        if (sessionStorage.getItem('authenticated') === 'true') {
+            unlock();
+        }
+
+        // --- Firebase Config ---
         const myFirebaseConfig = {
             apiKey: "AIzaSyA18U7xgZ6GWBnHnfmR4d9q-OeBg6OWL_c",
             authDomain: "controle-financeiro-fami-2e96f.firebaseapp.com",
@@ -136,7 +193,6 @@
             appId: "1:268392392553:web:1ba1958928affa2c073ff8",
             measurementId: "G-QWM6VTJJ8R"
         };
-        // ==========================================
 
         const isCanvas = typeof __firebase_config !== 'undefined';
         const firebaseConfig = isCanvas ? JSON.parse(__firebase_config) : myFirebaseConfig;
@@ -188,7 +244,6 @@
 
         function loadExpenses() {
             if (!user) return;
-            // Usando caminho compatível com regras de segurança
             const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'expenses');
             onSnapshot(colRef, (snapshot) => {
                 expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
