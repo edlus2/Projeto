@@ -58,7 +58,7 @@
                 <div id="user-status" class="flex flex-col gap-1 bg-slate-800 p-3 rounded-xl border border-slate-700">
                     <div class="flex items-center gap-2 text-xs">
                         <div id="status-dot" class="w-2 h-2 rounded-full bg-yellow-500"></div>
-                        <span id="status-text">Conectando...</span>
+                        <span id="status-text">Ligando...</span>
                     </div>
                 </div>
             </div>
@@ -115,6 +115,7 @@
                                 <button type="button" id="cancel-edit" class="hidden md:col-span-2 bg-slate-200 text-slate-600 font-bold py-2 rounded-xl">Cancelar Edição</button>
                             </form>
                         </section>
+
                         <section class="glass-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                             <div class="p-6 border-b border-slate-100 flex justify-between items-center">
                                 <h3 class="text-lg font-bold text-slate-800">Lançamentos</h3>
@@ -159,12 +160,11 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- Configurações Iniciais ---
         const MASTER_PASSWORD = "2204";
         let activeTab = 'current';
         let currentMonthFilter = new Date().toISOString().slice(0, 7);
 
-        // --- Firebase Config (Restaurada para a versão que funcionava) ---
+        // Suas chaves Firebase
         const myFirebaseConfig = {
             apiKey: "AIzaSyA18U7xgZ6GWBnHnfmR4d9q-OeBg6OWL_c",
             authDomain: "controle-financeiro-fami-2e96f.firebaseapp.com",
@@ -175,9 +175,17 @@
             measurementId: "G-QWM6VTJJ8R"
         };
 
-        const isCanvas = typeof __firebase_config !== 'undefined';
-        const firebaseConfig = isCanvas ? JSON.parse(__firebase_config) : myFirebaseConfig;
-        const appId = isCanvas && typeof __app_id !== 'undefined' ? __app_id : 'meu-gestor-financeiro';
+        let firebaseConfig = myFirebaseConfig;
+        let isCanvas = false;
+
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            try {
+                firebaseConfig = JSON.parse(__firebase_config);
+                isCanvas = true;
+            } catch (e) { }
+        }
+        
+        const appId = (isCanvas && typeof __app_id !== 'undefined') ? __app_id : 'meu-gestor-financeiro';
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -256,50 +264,53 @@
 
         if (sessionStorage.getItem('authenticated') === 'true') unlock();
 
-        // --- Lógica de Banco de Dados (Corrigida para restaurar conexão) ---
+        // --- Lógica de Inicialização Silenciosa ---
 
-        function initApp() {
+        async function initApp() {
             onAuthStateChanged(auth, (u) => {
                 user = u;
                 if (user) {
                     el.statusDot.className = "w-2 h-2 rounded-full bg-green-500 animate-pulse";
-                    el.statusText.innerText = "Conectado ao Banco";
-                    loadData();
+                    el.statusText.innerText = "Conectado";
+                    startDataListener();
                 } else {
-                    el.statusDot.className = "w-2 h-2 rounded-full bg-red-500";
-                    el.statusText.innerText = "Desconectado";
+                    el.statusDot.className = "w-2 h-2 rounded-full bg-yellow-500";
+                    el.statusText.innerText = "Aguardando...";
                 }
             });
-            
-            // Tenta logar de forma silenciosa primeiro
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token && isCanvas) {
-                signInWithCustomToken(auth, __initial_auth_token).catch(() => signInAnonymously(auth));
-            } else {
-                signInAnonymously(auth).catch(() => {
-                    // Se falhar no GitHub, garante que a mensagem não trave o app
-                    console.warn("Falha na autenticação anônima.");
-                });
+
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token && isCanvas) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (e) {
+                console.warn("Ligação em background falhou.");
             }
         }
 
-        function loadData() {
+        function startDataListener() {
+            if (!user) return;
             const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'expenses');
             onSnapshot(colRef, (snapshot) => {
                 expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 render();
+            }, (error) => {
+                console.error("Erro ao ler dados:", error);
             });
         }
 
         async function saveExpense(e) {
             e.preventDefault();
-            if (!user) return showToast("Aguarde a conexão...", true);
+            if (!user) return showToast("Aguarde a ligação ao banco...", true);
             
-            // Converte vírgula para ponto e garante que é um número
-            const rawValue = document.getElementById('amount').value.replace(',', '.');
-            const numericValue = parseFloat(rawValue);
+            // Garantir conversão numérica correta (vírgula para ponto)
+            const rawAmount = document.getElementById('amount').value.replace(',', '.');
+            const numericAmount = parseFloat(rawAmount);
 
-            if (isNaN(numericValue)) {
-                return showToast("Insira um valor numérico válido.", true);
+            if (isNaN(numericAmount)) {
+                return showToast("Valor inválido! Use apenas números.", true);
             }
 
             const btnText = el.submitBtn.querySelector('span');
@@ -312,7 +323,7 @@
                 description: document.getElementById('description').value,
                 date: document.getElementById('date').value,
                 observation: document.getElementById('observation').value || "",
-                amount: numericValue,
+                amount: numericAmount,
                 updatedAt: new Date().toISOString()
             };
 
@@ -329,7 +340,7 @@
                 resetForm();
             } catch (err) {
                 console.error("Erro ao salvar:", err);
-                showToast("Erro ao salvar. Verifique o console.", true);
+                showToast("Erro ao salvar dados. Verifique a consola.", true);
             } finally {
                 btnText.innerText = originalText;
                 el.submitBtn.disabled = false;
@@ -393,11 +404,11 @@
         }
 
         window.removeItem = async (id) => { 
-            if (confirm("Deseja excluir este item?")) {
+            if (confirm("Deseja eliminar este item?")) {
                 try {
                     await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', id));
-                    showToast("Excluído com sucesso!");
-                } catch (e) { showToast("Erro ao excluir", true); }
+                    showToast("Removido com sucesso!");
+                } catch (e) { showToast("Erro ao remover", true); }
             }
         };
 
