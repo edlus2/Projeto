@@ -105,7 +105,7 @@
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-xs font-bold text-slate-500 uppercase">Valor (R$)</label>
-                                    <input type="number" step="0.01" id="amount" required class="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-bold text-indigo-600" placeholder="0,00">
+                                    <input type="text" id="amount" required class="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-bold text-indigo-600" placeholder="0,00">
                                 </div>
                                 <div class="flex items-end">
                                     <button type="submit" id="submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all">
@@ -165,7 +165,7 @@
         let activeTab = 'current';
         let currentMonthFilter = new Date().toISOString().slice(0, 7);
 
-        // --- Firebase Config (Do código original que funcionava) ---
+        // --- Firebase Config ---
         const myFirebaseConfig = {
             apiKey: "AIzaSyA18U7xgZ6GWBnHnfmR4d9q-OeBg6OWL_c",
             authDomain: "controle-financeiro-fami-2e96f.firebaseapp.com",
@@ -260,7 +260,7 @@
 
         if (sessionStorage.getItem('authenticated') === 'true') unlock();
 
-        // --- Lógica de Banco de Dados (Parte restaurada) ---
+        // --- Lógica de Banco de Dados ---
 
         function initApp() {
             onAuthStateChanged(auth, (u) => {
@@ -277,12 +277,12 @@
             
             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token && isCanvas) {
                 signInWithCustomToken(auth, __initial_auth_token).catch(err => {
-                    console.error("Custom token error:", err);
+                    console.error("Auth Error:", err);
                     showToast("Erro ao autenticar", true);
                 });
             } else {
                 signInAnonymously(auth).catch(err => {
-                    console.error("Anonymous auth error:", err);
+                    console.error("Connection Error:", err);
                     showToast("Erro de conexão", true);
                     el.statusText.innerText = "Erro de Ligação";
                 });
@@ -304,6 +304,14 @@
             e.preventDefault();
             if (!user) return showToast("Aguarde a conexão...", true);
             
+            // Tratamento do valor (trocar vírgula por ponto para parse correto)
+            const rawAmount = document.getElementById('amount').value.replace(',', '.');
+            const numericAmount = parseFloat(rawAmount);
+
+            if (isNaN(numericAmount)) {
+                return showToast("Valor inválido! Use apenas números.", true);
+            }
+
             const btnText = el.submitBtn.querySelector('span');
             const originalText = btnText.innerText;
             btnText.innerText = "Salvando...";
@@ -314,7 +322,7 @@
                 description: document.getElementById('description').value,
                 date: document.getElementById('date').value,
                 observation: document.getElementById('observation').value,
-                amount: parseFloat(document.getElementById('amount').value),
+                amount: numericAmount,
                 updatedAt: new Date().toISOString()
             };
 
@@ -322,15 +330,14 @@
                 if (editId) {
                     await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', editId), data);
                     showToast("Atualizado com sucesso!");
-                    resetForm();
                 } else {
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'expenses'), { ...data, createdAt: new Date().toISOString() });
                     showToast("Salvo com sucesso!");
-                    e.target.reset();
                 }
+                resetForm(); // Limpa tudo após salvar ou atualizar
             } catch (err) {
-                console.error(err);
-                showToast("Erro ao salvar", true);
+                console.error("Erro ao salvar:", err);
+                showToast("Erro ao salvar no banco. Verifique as permissões.", true);
             } finally {
                 btnText.innerText = originalText;
                 el.submitBtn.disabled = false;
@@ -394,7 +401,14 @@
         }
 
         window.removeItem = async (id) => { 
-            if (confirm("Excluir?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', id)); 
+            if (confirm("Deseja excluir este item?")) {
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', id));
+                    showToast("Excluído com sucesso!");
+                } catch (e) {
+                    showToast("Erro ao excluir", true);
+                }
+            }
         };
 
         window.editItem = (id) => {
@@ -404,7 +418,7 @@
                 document.getElementById('description').value = ex.description;
                 document.getElementById('date').value = ex.date;
                 document.getElementById('observation').value = ex.observation;
-                document.getElementById('amount').value = ex.amount;
+                document.getElementById('amount').value = ex.amount.toString().replace('.', ',');
                 document.getElementById('edit-id').value = ex.id;
                 el.submitBtn.querySelector('span').innerText = "Atualizar";
                 document.getElementById('cancel-edit').classList.remove('hidden');
