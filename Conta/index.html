@@ -32,10 +32,10 @@
                 <i data-lucide="lock"></i>
             </div>
             <h2 class="text-2xl font-bold text-slate-800 mb-2">Acesso Privado</h2>
-            <p class="text-slate-500 mb-6 text-sm">Digite a senha para acessar o controle financeiro.</p>
+            <p class="text-slate-500 mb-6 text-sm">Introduza a palavra-passe para aceder ao controlo financeiro.</p>
             <input type="password" id="password-input" class="w-full p-3 border border-slate-300 rounded-xl mb-4 text-center text-xl tracking-widest outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800" placeholder="****">
             <button id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-md transition-all">Entrar</button>
-            <p id="login-error" class="text-red-500 text-sm mt-3 hidden">Senha incorreta.</p>
+            <p id="login-error" class="text-red-500 text-sm mt-3 hidden">Palavra-passe incorreta.</p>
         </div>
     </div>
 
@@ -57,7 +57,7 @@
             <div class="absolute bottom-6 left-6 right-6">
                 <div id="user-status" class="flex items-center gap-2 text-xs bg-slate-800 p-3 rounded-xl border border-slate-700">
                     <div id="status-dot" class="w-2 h-2 rounded-full bg-yellow-500"></div>
-                    <span id="status-text">Conectando...</span>
+                    <span id="status-text">A ligar...</span>
                 </div>
             </div>
         </aside>
@@ -74,7 +74,7 @@
 
             <header class="p-6 lg:p-10 pb-2">
                 <h2 id="current-tab-title" class="text-2xl lg:text-3xl font-bold text-slate-800">Mês Atual</h2>
-                <p id="current-tab-subtitle" class="text-slate-500 mt-1">Gerencie os gastos de <span id="display-month-name" class="capitalize font-semibold text-indigo-600">...</span></p>
+                <p id="current-tab-subtitle" class="text-slate-500 mt-1">Gira os gastos de <span id="display-month-name" class="capitalize font-semibold text-indigo-600">...</span></p>
             </header>
 
             <div class="p-6 lg:p-10 space-y-8">
@@ -107,7 +107,7 @@
                                 </div>
                                 <div class="flex items-end">
                                     <button type="submit" id="submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all">
-                                        <i data-lucide="save" size="18"></i> <span>Salvar</span>
+                                        <i data-lucide="save" size="18"></i> <span>Guardar</span>
                                     </button>
                                 </div>
                                 <button type="button" id="cancel-edit" class="hidden md:col-span-2 bg-slate-200 text-slate-600 font-bold py-2 rounded-xl">Cancelar Edição</button>
@@ -132,7 +132,7 @@
                                     <tbody id="expense-list" class="text-sm divide-y divide-slate-50"></tbody>
                                 </table>
                                 <div id="empty-state" class="hidden py-16 text-center text-slate-400">
-                                    <p>Nenhum registro encontrado.</p>
+                                    <p>Nenhum registo encontrado.</p>
                                 </div>
                             </div>
                         </section>
@@ -162,7 +162,7 @@
         let activeTab = 'current';
         let currentMonthFilter = new Date().toISOString().slice(0, 7);
 
-        // Suas chaves para uso fora do Canvas (GitHub)
+        // Chaves para uso externo (GitHub)
         const myFirebaseConfig = {
             apiKey: "AIzaSyA18U7xgZ6GWBnHnfmR4d9q-OeBg6OWL_c",
             authDomain: "controle-financeiro-fami-2e96f.firebaseapp.com",
@@ -173,15 +173,23 @@
             measurementId: "G-QWM6VTJJ8R"
         };
 
-        // Detecção automática de ambiente
-        let firebaseConfig;
-        try {
-            firebaseConfig = (typeof __firebase_config !== 'undefined') ? JSON.parse(__firebase_config) : myFirebaseConfig;
-        } catch (e) {
-            firebaseConfig = myFirebaseConfig;
+        // Deteção robusta de ambiente
+        let firebaseConfig = myFirebaseConfig;
+        let isCanvas = false;
+
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            try {
+                firebaseConfig = JSON.parse(__firebase_config);
+                isCanvas = true;
+                console.log("Ambiente: Canvas detectado");
+            } catch (e) {
+                console.warn("Erro ao ler config do Canvas, a usar fallback");
+            }
+        } else {
+            console.log("Ambiente: Externo (GitHub/Produção)");
         }
         
-        const appId = (typeof __app_id !== 'undefined') ? __app_id : 'controle-financeiro-producao';
+        const appId = (isCanvas && typeof __app_id !== 'undefined') ? __app_id : 'producao-github';
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -261,29 +269,19 @@
             initApp();
         }
 
-        if (sessionStorage.getItem('authenticated') === 'true') unlock();
+        if (sessionStorage.getItem('authenticated') === 'true') {
+            unlock();
+        }
 
         async function initApp() {
             try {
-                // Tentativa de autenticação com retry automático
-                let attempt = 0;
-                const maxAttempts = 3;
-                
+                // Lógica de Autenticação com Fallback Automático
                 const performAuth = async () => {
-                    try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } else {
-                            await signInAnonymously(auth);
-                        }
-                    } catch (e) {
-                        if (attempt < maxAttempts) {
-                            attempt++;
-                            console.log(`Tentativa de auth ${attempt} falhou. Tentando novamente...`);
-                            await new Promise(r => setTimeout(r, 1000 * attempt));
-                            return performAuth();
-                        }
-                        throw e;
+                    if (isCanvas && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        return await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        // Fora do Canvas, exige que "Anonymous Sign-in" esteja ativo no console Firebase
+                        return await signInAnonymously(auth);
                     }
                 };
 
@@ -292,41 +290,39 @@
                 onAuthStateChanged(auth, (u) => {
                     user = u;
                     if (user) {
+                        console.log("Autenticado como:", user.uid);
                         el.statusDot.className = "w-2 h-2 rounded-full bg-green-500";
-                        el.statusText.innerText = "Conectado";
+                        el.statusText.innerText = "Ligado";
                         startDataListener();
                     } else {
                         el.statusDot.className = "w-2 h-2 rounded-full bg-red-500";
-                        el.statusText.innerText = "Desconectado";
+                        el.statusText.innerText = "Desligado";
                     }
                 });
             } catch (e) { 
-                console.error("Erro Crítico de Ligação:", e);
-                showToast("Erro ao ligar ao servidor. Verifique a consola.", true); 
+                console.error("Erro Crítico de Ligação:", e.message);
+                showToast("Erro na ligação ao servidor. Verifique se o Login Anónimo está ativo.", true); 
+                el.statusText.innerText = "Erro de Ligação";
             }
         }
 
         function startDataListener() {
             if (!user) return;
-            // Padrão de coleção obrigatório para o ambiente
+            // Caminho obrigatório seguindo a regra do ambiente
             const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'expenses');
             
             onSnapshot(colRef, (snapshot) => {
                 expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 render();
             }, (error) => {
-                console.error("Erro no Firestore:", error);
-                if (error.code === 'permission-denied') {
-                    showToast("Erro: Permissão negada no banco de dados.", true);
-                } else {
-                    showToast("Erro ao ler dados.", true);
-                }
+                console.error("Erro Firestore:", error.message);
+                showToast("Erro de permissão no banco de dados. Verifique as regras de segurança.", true);
             });
         }
 
         async function saveExpense(e) {
             e.preventDefault();
-            if (!user) return showToast("Aguarde a ligação ao servidor...", true);
+            if (!user) return showToast("A aguardar ligação ao servidor...", true);
             
             const btnText = el.submitBtn.querySelector('span');
             const originalText = btnText.innerText;
@@ -356,7 +352,7 @@
                     e.target.reset();
                 }
             } catch (err) {
-                console.error(err);
+                console.error("Erro ao guardar:", err.message);
                 showToast("Erro ao guardar dados.", true);
             } finally {
                 btnText.innerText = originalText;
@@ -401,7 +397,7 @@
             lucide.createIcons();
             
             const dateObj = new Date(target + "-02");
-            document.getElementById('display-month-name').innerText = dateObj.toLocaleDateString('pt-br', { month: 'long', year: 'numeric' });
+            document.getElementById('display-month-name').innerText = dateObj.toLocaleDateString('pt-pt', { month: 'long', year: 'numeric' });
         }
 
         function updateChart(data) {
