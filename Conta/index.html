@@ -162,7 +162,6 @@
         let activeTab = 'current';
         let currentMonthFilter = new Date().toISOString().slice(0, 7);
 
-        // Chaves para uso externo (GitHub)
         const myFirebaseConfig = {
             apiKey: "AIzaSyA18U7xgZ6GWBnHnfmR4d9q-OeBg6OWL_c",
             authDomain: "controle-financeiro-fami-2e96f.firebaseapp.com",
@@ -173,7 +172,6 @@
             measurementId: "G-QWM6VTJJ8R"
         };
 
-        // Deteção robusta de ambiente
         let firebaseConfig = myFirebaseConfig;
         let isCanvas = false;
 
@@ -181,12 +179,9 @@
             try {
                 firebaseConfig = JSON.parse(__firebase_config);
                 isCanvas = true;
-                console.log("Ambiente: Canvas detectado");
             } catch (e) {
-                console.warn("Erro ao ler config do Canvas, a usar fallback");
+                console.warn("Erro ao ler config do Canvas.");
             }
-        } else {
-            console.log("Ambiente: Externo (GitHub/Produção)");
         }
         
         const appId = (isCanvas && typeof __app_id !== 'undefined') ? __app_id : 'producao-github';
@@ -269,19 +264,33 @@
             initApp();
         }
 
-        if (sessionStorage.getItem('authenticated') === 'true') {
-            unlock();
-        }
+        if (sessionStorage.getItem('authenticated') === 'true') unlock();
 
         async function initApp() {
             try {
-                // Lógica de Autenticação com Fallback Automático
+                let attempt = 0;
+                const maxAttempts = 3;
+
                 const performAuth = async () => {
-                    if (isCanvas && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        return await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        // Fora do Canvas, exige que "Anonymous Sign-in" esteja ativo no console Firebase
-                        return await signInAnonymously(auth);
+                    try {
+                        if (isCanvas && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            return await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            return await signInAnonymously(auth);
+                        }
+                    } catch (e) {
+                        // Erro específico: Login Anónimo desativado no Firebase
+                        if (e.code === 'auth/operation-not-allowed') {
+                            throw new Error("LOGIN_DISABLED");
+                        }
+                        // Retry para erros de rede
+                        if (attempt < maxAttempts) {
+                            attempt++;
+                            console.log(`Tentativa ${attempt} falhou. A tentar novamente...`);
+                            await new Promise(r => setTimeout(r, 1000 * attempt));
+                            return performAuth();
+                        }
+                        throw e;
                     }
                 };
 
@@ -290,39 +299,38 @@
                 onAuthStateChanged(auth, (u) => {
                     user = u;
                     if (user) {
-                        console.log("Autenticado como:", user.uid);
                         el.statusDot.className = "w-2 h-2 rounded-full bg-green-500";
                         el.statusText.innerText = "Ligado";
                         startDataListener();
-                    } else {
-                        el.statusDot.className = "w-2 h-2 rounded-full bg-red-500";
-                        el.statusText.innerText = "Desligado";
                     }
                 });
             } catch (e) { 
-                console.error("Erro Crítico de Ligação:", e.message);
-                showToast("Erro na ligação ao servidor. Verifique se o Login Anónimo está ativo.", true); 
+                console.error("Erro Crítico:", e);
+                if (e.message === "LOGIN_DISABLED") {
+                    showToast("Ative o 'Anonymous' em Authentication > Sign-in method no seu Firebase.", true);
+                } else {
+                    showToast("Erro na ligação ao servidor. Verifique a consola.", true);
+                }
                 el.statusText.innerText = "Erro de Ligação";
             }
         }
 
         function startDataListener() {
             if (!user) return;
-            // Caminho obrigatório seguindo a regra do ambiente
             const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'expenses');
             
             onSnapshot(colRef, (snapshot) => {
                 expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 render();
             }, (error) => {
-                console.error("Erro Firestore:", error.message);
-                showToast("Erro de permissão no banco de dados. Verifique as regras de segurança.", true);
+                console.error("Erro Firestore:", error);
+                showToast("Erro de permissão na base de dados.", true);
             });
         }
 
         async function saveExpense(e) {
             e.preventDefault();
-            if (!user) return showToast("A aguardar ligação ao servidor...", true);
+            if (!user) return showToast("A aguardar ligação...", true);
             
             const btnText = el.submitBtn.querySelector('span');
             const originalText = btnText.innerText;
@@ -341,18 +349,16 @@
 
             try {
                 if (editId) {
-                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'expenses', editId);
-                    await updateDoc(docRef, data);
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', editId), data);
                     showToast("Atualizado com sucesso!");
                     resetForm();
                 } else {
-                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'expenses');
-                    await addDoc(colRef, { ...data, createdAt: new Date().toISOString() });
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'expenses'), { ...data, createdAt: new Date().toISOString() });
                     showToast("Guardado com sucesso!");
                     e.target.reset();
                 }
             } catch (err) {
-                console.error("Erro ao guardar:", err.message);
+                console.error(err);
                 showToast("Erro ao guardar dados.", true);
             } finally {
                 btnText.innerText = originalText;
