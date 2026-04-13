@@ -11,7 +11,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
         .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
-        .hidden-content { display: none; }
+        .hidden-content { display: none !important; }
         .sidebar-transition { transition: all 0.3s ease; }
         @media (max-width: 1024px) { .sidebar-hidden { transform: translateX(-100%); } }
     </style>
@@ -162,7 +162,6 @@
         let activeTab = 'current';
         let currentMonthFilter = new Date().toISOString().slice(0, 7);
 
-        // CONFIGURAÇÃO DO FIREBASE (Suas chaves para quando estiver no GitHub)
         const myFirebaseConfig = {
             apiKey: "AIzaSyA18U7xgZ6GWBnHnfmR4d9q-OeBg6OWL_c",
             authDomain: "controle-financeiro-fami-2e96f.firebaseapp.com",
@@ -173,7 +172,6 @@
             measurementId: "G-QWM6VTJJ8R"
         };
 
-        // Lógica de Detecção de Ambiente
         let firebaseConfig;
         try {
             firebaseConfig = (typeof __firebase_config !== 'undefined') ? JSON.parse(__firebase_config) : myFirebaseConfig;
@@ -240,15 +238,20 @@
             render();
         };
 
-        document.getElementById('login-btn').addEventListener('click', () => {
+        // Função de login melhorada
+        const handleLogin = () => {
             if (el.passInput.value === MASTER_PASSWORD) {
                 sessionStorage.setItem('authenticated', 'true');
                 unlock();
             } else {
                 el.loginError.classList.remove('hidden');
                 el.passInput.value = '';
+                el.passInput.focus();
             }
-        });
+        };
+
+        document.getElementById('login-btn').addEventListener('click', handleLogin);
+        el.passInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleLogin(); });
 
         function unlock() {
             el.loginScreen.classList.add('hidden');
@@ -257,11 +260,12 @@
             initApp();
         }
 
-        if (sessionStorage.getItem('authenticated') === 'true') unlock();
+        if (sessionStorage.getItem('authenticated') === 'true') {
+            unlock();
+        }
 
         async function initApp() {
             try {
-                // Tenta autenticar
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
@@ -284,7 +288,6 @@
 
         function startDataListener() {
             if (!user) return;
-            // Caminho da coleção (padrão obrigatório)
             const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'expenses');
             
             onSnapshot(colRef, (snapshot) => {
