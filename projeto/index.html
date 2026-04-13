@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="pt-pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projeto Orca - Gestão de Qualidade Vallourec</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide-static@0.321.0/lib/lucide.min.js"></script>
+    
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const setCloudStatus = (text, colorClass = 'text-blue-400', dotClass = 'bg-blue-500') => {
+            const statusEl = document.getElementById('cloud-status');
+            const dotEl = document.getElementById('cloud-dot');
+            if (statusEl) { statusEl.innerText = text; statusEl.className = `font-bold ${colorClass}`; }
+            if (dotEl) { dotEl.className = `w-2 h-2 rounded-full animate-pulse ${dotClass}`; }
+        };
+
+        async function startApp() {
+            let db, appId;
+            let cloudTimeout = setTimeout(() => {
+                if (window.cloudConnected !== true) {
+                    setCloudStatus("Modo Local (Offline)", "text-orange-500", "bg-orange-500");
+                    loadLocalData();
+                }
+            }, 5000);
+
+            try {
+                const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                
+                if (!configStr) throw new Error("Configuração ausente");
+
+                const firebaseConfig = JSON.parse(configStr);
+                const app = initializeApp(firebaseConfig);
+                const auth = getAuth(app);
+                db = getFirestore(app);
+
+                window.db = db;
+                window.appId = appId;
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        clearTimeout(cloudTimeout);
+                        window.cloudConnected = true;
+                        setCloudStatus("Sincronizado", "text-green-500", "bg-green-500");
+                        startSync(db, appId);
+                    }
+                });
+
+            } catch (err) {
+                setCloudStatus("Modo Local (Offline)", "text-orange-500", "bg-orange-500");
+                loadLocalData();
+            }
+        }
+
+        function startSync(db, appId) {
+            const prodRef = collection(db, 'artifacts', appId, 'public', 'data', 'productionHistory');
+            onSnapshot(prodRef, (snapshot) => {
+                window.productionHistory = snapshot.docs.map(doc => doc.data()).sort((a,b) => new Date(a.date) - new Date(b.date));
+                syncToLocal('orca_local_prod', window.productionHistory);
+                window.updateDashboard();
+                window.updateHistoryTable();
+                window.renderReport();
+            });
+
+            const resRef = collection(db, 'artifacts', appId, 'public', 'data', 'resolvedHistory');
+            onSnapshot(resRef, (snapshot) => {
+                window.resolvedHistory = snapshot.docs.map(doc => doc.data());
+                syncToLocal('orca_local_res', window.resolvedHistory);
+                window.renderAnalysis();
+                window.renderReport();
+            });
+
+            const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'global');
+            onSnapshot(configRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.data();
+                    window.targetGoal = data.targetGoal || 1500;
+                    window.projectScope = data.projectScope || "Projeto Orca";
+                    window.applyScope();
+                    window.updateDashboard();
+                }
+            });
+        }
+
+        function loadLocalData() {
+            window.productionHistory = JSON.parse(localStorage.getItem('orca_local_prod')) || [];
+            window.resolvedHistory = JSON.parse(localStorage.getItem('orca_local_res')) || [];
+            window.targetGoal = localStorage.getItem('orca_local_target') || 1500;
+            window.projectScope = localStorage.getItem('orca_local_scope') || "Projeto Orca";
+            window.updateDashboard();
+            window.updateHistoryTable();
+            window.renderAnalysis();
+            window.renderReport();
+            window.applyScope();
+        }
+
+        function syncToLocal(key, data) { localStorage.setItem(key, JSON.stringify(data)); }
+        startApp();
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; transition: background-color 0.3s; }
+        .sidebar-item.active { background-color: #1e40af; border-left: 4px solid #fff; }
+        .chart-container { position: relative; height: 300px; width: 100%; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .composition-bar-container { height: 20px; width: 100%; background-color: #e2e8f0; border-radius: 10px; overflow: hidden; display: flex; }
+        .bar-pending { background-color: #f97316; transition: width 0.5s ease; }
+        .bar-rejected { background-color: #ef4444; transition: width 0.5s ease; }
+        
+        .toast {
+            animation: slideIn 0.3s ease-out forwards, fadeOut 0.3s ease-in forwards 2.7s;
+        }
+        @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white !important; font-size: 8pt; color: black !important; padding: 0; margin: 0; }
+            main { overflow: visible !important; width: 100% !important; height: auto !important; }
+            #content-scroll { overflow: visible !important; height: auto !important; padding: 5mm !important; }
+            .bg-slate-50\/50 { background-color: white !important; }
+            .report-grid-print { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; gap: 4mm !important; margin-bottom: 5mm !important; }
+            .bg-white { border: 0.5pt solid #ccc !important; border-radius: 5px !important; padding: 3mm !important; box-shadow: none !important; }
+            .chart-container-print { height: 180px !important; margin: 5mm 0 !important; }
+            table { width: 100% !important; border-collapse: collapse !important; margin-top: 5mm !important; }
+            th, td { padding: 2mm !important; border-bottom: 0.5pt solid #eee !important; font-size: 7pt !important; }
+            h2 { font-size: 14pt !important; margin: 0 !important; }
+            .signature-box { display: block !important; margin-top: 15mm; border-top: 0.5pt solid black; width: 45%; text-align: center; padding-top: 2mm; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 overflow-hidden">
+
+    <div id="toast-container" class="fixed bottom-10 right-10 z-[100] flex flex-col gap-2 pointer-events-none"></div>
+
+    <div class="flex h-screen w-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-blue-950 text-white flex flex-col flex-shrink-0 shadow-2xl z-20 no-print">
+            <div class="p-6 border-b border-blue-900 flex flex-col items-center">
+                <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center mb-3 shadow-lg">
+                    <span class="text-blue-900 text-xl font-black uppercase" id="sidebar-initial">V</span>
+                </div>
+                <h2 class="text-lg font-bold tracking-tight uppercase text-center leading-tight" id="sidebar-scope">PROJETO ORCA</h2>
+                <p class="text-[10px] text-blue-400 uppercase tracking-widest font-bold mt-1">Coating Process</p>
+            </div>
+            
+            <nav class="flex-1 mt-6 overflow-y-auto px-3 space-y-1">
+                <button onclick="switchView('dashboard')" id="btn-dashboard" class="sidebar-item active w-full flex items-center p-3 rounded-lg hover:bg-blue-900 transition-all group text-sm font-bold">
+                    <svg class="w-5 h-5 mr-3 text-blue-400 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    Dashboard Geral
+                </button>
+                <button onclick="switchView('input')" id="btn-input" class="sidebar-item w-full flex items-center p-3 rounded-lg hover:bg-blue-900 transition-all group text-sm font-bold">
+                    <svg class="w-5 h-5 mr-3 text-blue-400 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    Apontamento
+                </button>
+                <button onclick="switchView('analysis')" id="btn-analysis" class="sidebar-item w-full flex items-center p-3 rounded-lg hover:bg-blue-900 transition-all group text-sm font-bold">
+                    <svg class="w-5 h-5 mr-3 text-blue-400 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    Análise Qualitativa
+                </button>
+                <button onclick="switchView('report')" id="btn-report" class="sidebar-item w-full flex items-center p-3 rounded-lg hover:bg-blue-900 transition-all group text-sm font-bold">
+                    <svg class="w-5 h-5 mr-3 text-blue-400 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2a4 4 0 014-4h4m0 0l-4-4m4 4l-4 4"></path></svg>
+                    Relatórios
+                </button>
+                <button onclick="switchView('settings')" id="btn-settings" class="sidebar-item w-full flex items-center p-3 rounded-lg hover:bg-blue-900 transition-all group text-sm font-bold">
+                    <svg class="w-5 h-5 mr-3 text-blue-400 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+                    Configurações
+                </button>
+            </nav>
+            
+            <div class="p-6 border-t border-blue-900">
+                <div class="flex items-center gap-2 mb-4 text-[10px] font-bold text-gray-400 uppercase">
+                    <span id="cloud-dot" class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                    Estado: <span id="cloud-status">A ligar...</span>
+                </div>
+                <button onclick="window.print()" class="w-full bg-slate-800 hover:bg-slate-700 text-xs py-2 rounded font-bold transition-colors flex items-center justify-center gap-2 mb-2">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                    IMPRIMIR RELATÓRIO
+                </button>
+                <button onclick="exportToCSV()" class="w-full bg-blue-800 hover:bg-blue-700 text-xs py-2 rounded font-bold transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"></path></svg>
+                    EXPORTAR CSV
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col h-full overflow-hidden">
+            <header class="bg-white border-b border-gray-200 p-4 flex flex-shrink-0 justify-between items-center z-10 shadow-sm no-print">
+                <div class="flex items-center gap-4">
+                    <h1 id="view-title" class="text-xl font-black text-blue-900 uppercase tracking-tighter">Visão Geral</h1>
+                    <select id="global-date-filter" onchange="updateDashboard()" class="bg-blue-50 border-none text-[10px] font-black uppercase rounded-lg px-3 py-1 text-blue-900 focus:ring-0 cursor-pointer">
+                        <option value="all">Todo Histórico</option>
+                        <option value="7">Últimos 7 dias</option>
+                        <option value="30">Últimos 30 dias</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="text-xs font-bold text-gray-400 bg-gray-50 px-4 py-2 rounded-lg border uppercase" id="current-date"></span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-black text-blue-900 uppercase hidden md:inline" id="header-scope-name">Projeto Orca</span>
+                        <div class="w-10 h-10 bg-blue-900 rounded-xl flex items-center justify-center text-white font-bold shadow-blue-200 shadow-lg" id="header-initial">V</div>
+                    </div>
+                </div>
+            </header>
+
+            <div id="content-scroll" class="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50">
+                
+                <section id="view-dashboard" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 group">
+                            <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Total Aprovado</p>
+                            <div class="flex items-baseline gap-2">
+                                <h2 class="text-4xl font-black text-gray-800" id="stat-total-approved">0</h2>
+                                <span class="text-xs font-bold text-blue-600" id="stat-target-pct">0% da meta</span>
+                            </div>
+                            <div class="w-full bg-gray-100 rounded-full h-1.5 mt-4 overflow-hidden">
+                                <div id="progress-bar" class="bg-blue-600 h-full transition-all duration-1000" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                            <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Taxa de Qualidade</p>
+                            <h2 class="text-4xl font-black transition-colors duration-500" id="stat-yield">0%</h2>
+                            <p class="text-[9px] font-bold text-gray-400 uppercase mt-1" id="stat-yield-label">Aguardando dados</p>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                            <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Previsão de Término</p>
+                            <h2 class="text-3xl font-black text-blue-900" id="stat-forecast">--</h2>
+                            <p class="text-[9px] font-bold text-blue-600 uppercase mt-1 tracking-tighter" id="stat-forecast-sub">Baseado na média diária</p>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-orange-500">
+                            <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Pendentes (Atuais)</p>
+                            <h2 class="text-4xl font-black text-orange-600" id="stat-total-pending">0</h2>
+                            <p class="text-[9px] font-bold text-orange-400 uppercase mt-1">Fila Técnica</p>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-red-500">
+                            <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Reprovados (Atuais)</p>
+                            <h2 class="text-4xl font-black text-red-600" id="stat-total-rejected">0</h2>
+                            <p class="text-[9px] font-bold text-red-400 uppercase mt-1">Para Reprocesso</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative">
+                        <h3 class="font-black text-gray-800 uppercase text-xs tracking-widest mb-8 italic text-center">Evolução Diária da Produção</h3>
+                        <div class="chart-container">
+                            <canvas id="qualityChart"></canvas>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="view-input" class="hidden max-w-4xl mx-auto space-y-6">
+                    <div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 no-print">
+                        <h3 id="form-title" class="text-xl font-black text-blue-950 mb-6 flex items-center gap-3 italic underline decoration-blue-500 underline-offset-8">Registo Diário</h3>
+                        <form id="prod-form" class="space-y-8">
+                            <input type="hidden" id="edit-id" value="">
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div>
+                                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Data</label>
+                                    <input type="date" id="input-date" required class="w-full rounded-xl border-gray-200 p-3 border font-bold text-sm focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black text-green-600 uppercase tracking-widest mb-2">Aprovados</label>
+                                    <input type="number" id="input-approved" value="0" min="0" class="w-full rounded-xl border-green-100 p-3 border font-black text-green-700 text-lg bg-green-50/30">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black text-orange-600 uppercase tracking-widest mb-2">Pendentes</label>
+                                    <input type="number" id="input-pending" value="0" min="0" oninput="generateDynamicInputs()" class="w-full rounded-xl border-orange-100 p-3 border font-black text-orange-700 text-lg bg-orange-50/30">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black text-red-600 uppercase tracking-widest mb-2">Reprovados</label>
+                                    <input type="number" id="input-rejected" value="0" min="0" oninput="generateDynamicInputs()" class="w-full rounded-xl border-red-100 p-3 border font-black text-red-700 text-lg bg-red-50/30">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Observações / Eventos do Dia</label>
+                                <textarea id="input-notes" placeholder="Descreva eventos importantes aqui..." class="w-full rounded-xl border-gray-200 p-3 border text-sm font-medium focus:ring-2 focus:ring-blue-500 min-h-[80px]"></textarea>
+                            </div>
+
+                            <div id="dynamic-container" class="space-y-6 hidden bg-slate-50 p-6 rounded-2xl border border-dashed border-slate-300">
+                                <h4 class="text-xs font-black text-slate-500 uppercase tracking-widest italic tracking-tighter">Identificação de Não-Conformidade por Tubo</h4>
+                                <div id="pending-pipes-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                                <div id="rejected-pipes-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                            </div>
+
+                            <button type="submit" id="submit-btn" class="w-full bg-blue-900 text-white font-black py-4 px-6 rounded-2xl hover:bg-black transition-all uppercase tracking-widest text-sm shadow-xl flex justify-center items-center gap-2">
+                                <span id="submit-text">Submeter Apontamento Diário</span>
+                                <div id="submit-spinner" class="hidden animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="p-4 bg-gray-50 border-b flex justify-between items-center text-[10px] font-black text-gray-400 uppercase tracking-widest">Histórico de Lançamentos</div>
+                        <div id="history-table-container" class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50/50 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                    <tr><th class="px-6 py-4 text-left">Data</th><th class="px-6 py-4 text-left text-green-600">Aprov.</th><th class="px-6 py-4 text-left text-orange-600">Pend.</th><th class="px-6 py-4 text-left text-red-600">Repr.</th><th class="px-6 py-4 text-left">Obs.</th><th class="px-6 py-4 text-right no-print">Ação</th></tr>
+                                </thead>
+                                <tbody id="history-body" class="divide-y divide-gray-50 text-sm font-bold text-gray-600"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="view-analysis" class="hidden space-y-8">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                            <h3 class="font-black text-gray-800 uppercase text-[10px] tracking-widest mb-6">Pareto de Defeitos (Histórico Acumulado)</h3>
+                            <div class="chart-container" style="height: 250px;">
+                                <canvas id="paretoChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                            <h3 class="font-black text-gray-800 uppercase text-[10px] tracking-widest mb-6">Tendência Mensal de Falhas</h3>
+                            <div class="chart-container" style="height: 250px;">
+                                <canvas id="monthlyRejectedChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-black text-gray-800 uppercase text-xs tracking-widest">Balanço Crítico de Ocorrências Atuais</h3>
+                            <div id="composition-labels" class="flex gap-4 text-[9px] font-black text-gray-500 uppercase tracking-widest"></div>
+                        </div>
+                        <div class="composition-bar-container mb-2">
+                            <div id="composition-pending" class="bar-pending" style="width: 50%"></div>
+                            <div id="composition-rejected" class="bar-rejected" style="width: 50%"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                            <div><h3 class="font-black text-gray-800 uppercase text-xs tracking-widest italic text-orange-600">Tubos em Fila de Decisão Técnica</h3></div>
+                            <div class="relative max-w-sm w-full">
+                                <input type="text" id="search-pipe" placeholder="Localizar Nº de Tubo..." oninput="renderAnalysis()" class="w-full pl-10 pr-4 py-2.5 border rounded-xl text-sm font-bold bg-slate-50 focus:ring-2 focus:ring-orange-500 outline-none">
+                                <svg class="w-4 h-4 text-gray-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="pipe-analysis-grid"></div>
+                    </div>
+                </section>
+
+                <section id="view-report" class="hidden space-y-6">
+                    <div class="report-grid-print">
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                            <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Total Aprovado</p>
+                            <h2 class="text-xl font-black text-gray-800" id="report-stat-approved">0</h2>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                            <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Rendimento Final</p>
+                            <h2 class="text-xl font-black text-blue-600" id="report-stat-yield">0%</h2>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-orange-500">
+                            <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Pendentes (Acumulado)</p>
+                            <h2 class="text-xl font-black text-orange-600" id="report-stat-pending">0</h2>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-red-500">
+                            <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Reprovados (Acumulado)</p>
+                            <h2 class="text-xl font-black text-red-600" id="report-stat-rejected">0</h2>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-2xl border border-gray-100 overflow-hidden">
+                        <div class="p-4 bg-gray-50 border-b flex flex-col md:flex-row gap-4 justify-between items-center no-print">
+                            <div><h3 class="font-black text-gray-800 uppercase text-xs tracking-widest text-blue-900 italic">Auditória Detalhada de Ocorrências</h3></div>
+                            <input type="date" id="report-filter-date" onchange="renderReport()" class="rounded-xl border-gray-200 p-2 border font-bold text-[10px] bg-white">
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full">
+                                <thead class="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left">Nº Tubo</th>
+                                        <th class="px-4 py-3 text-left">Data Ocorrência</th>
+                                        <th class="px-4 py-3 text-left">Tipo Original</th>
+                                        <th class="px-4 py-3 text-left text-red-500">Motivo</th>
+                                        <th class="px-4 py-3 text-left">Situação</th>
+                                        <th class="px-4 py-3 text-right">Data Tratativa</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="report-table-body" class="divide-y divide-gray-50 text-xs font-bold text-gray-700 italic"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="view-settings" class="hidden space-y-6 no-print">
+                    <div class="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
+                        <h3 class="text-lg font-black text-gray-800 mb-6 uppercase tracking-tight italic">Configuração de Meta</h3>
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Escopo do Projeto</label>
+                                <input type="text" id="config-scope" class="w-full rounded-xl border-gray-200 p-4 border text-lg font-bold focus:ring-2 focus:ring-blue-500 transition-all">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Meta Total de Tubos</label>
+                                <input type="number" id="config-target" class="w-full rounded-xl border-gray-200 p-4 border text-xl font-black focus:ring-2 focus:ring-blue-500 transition-all">
+                            </div>
+                            <button onclick="updateSettings()" class="w-full bg-blue-900 text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-black transition-all">Salvar Alterações</button>
+                        </div>
+                    </div>
+                    
+                    <div class="max-w-md mx-auto bg-blue-50 p-8 rounded-2xl border border-blue-100 space-y-4 shadow-sm">
+                        <h3 class="text-sm font-black text-blue-900 uppercase tracking-tight italic">Sincronização de Backup</h3>
+                        <p class="text-[10px] text-blue-700 font-bold leading-relaxed">Guarde os seus dados num ficheiro .json para segurança ou para partilhar entre postos.</p>
+                        <div class="grid grid-cols-1 gap-2">
+                            <button onclick="exportBackupJSON()" class="w-full bg-blue-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-800 transition-all shadow-md">Exportar Arquivo (.json)</button>
+                            <label class="w-full bg-white border-2 border-blue-600 text-blue-600 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-center cursor-pointer hover:bg-blue-50 transition-all">
+                                Importar Arquivo (.json)
+                                <input type="file" id="import-json" class="hidden" accept=".json" onchange="importBackupJSON(event)">
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="max-w-md mx-auto bg-red-50 p-8 rounded-2xl border border-red-100 shadow-sm">
+                        <h3 class="text-sm font-black text-red-800 mb-2 uppercase tracking-tight">Manutenção</h3>
+                        <button onclick="clearAllData()" class="bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-800 transition-all font-black uppercase text-[10px] tracking-widest">Apagar Todo o Projeto</button>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        import { doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        window.saveEntryToCloud = async (entry) => {
+            if (!window.db) { saveLocally('orca_local_prod', window.productionHistory); return; }
+            const docRef = doc(window.db, 'artifacts', window.appId, 'public', 'data', 'productionHistory', entry.id.toString());
+            await setDoc(docRef, entry);
+        };
+
+        window.deleteEntryFromCloud = async (id) => {
+            if (!window.db) { window.productionHistory = window.productionHistory.filter(e => e.id !== id); saveLocally('orca_local_prod', window.productionHistory); return; }
+            const docRef = doc(window.db, 'artifacts', window.appId, 'public', 'data', 'productionHistory', id.toString());
+            await deleteDoc(docRef);
+        };
+
+        window.saveResolvedToCloud = async (item) => {
+            if (!window.db) { saveLocally('orca_local_res', window.resolvedHistory); return; }
+            const docRef = doc(window.db, 'artifacts', window.appId, 'public', 'data', 'resolvedHistory', Date.now().toString());
+            await setDoc(docRef, item);
+        };
+
+        window.saveConfigToCloud = async () => {
+            if (!window.db) { localStorage.setItem('orca_local_scope', window.projectScope); localStorage.setItem('orca_local_target', window.targetGoal); return; }
+            const docRef = doc(window.db, 'artifacts', window.appId, 'public', 'data', 'settings', 'global');
+            await setDoc(docRef, { targetGoal: window.targetGoal, projectScope: window.projectScope });
+        };
+
+        function saveLocally(key, data) { localStorage.setItem(key, JSON.stringify(data)); }
+    </script>
+
+    <script>
+        Chart.register(ChartDataLabels);
+        const DEFECT_CATEGORIES = ["Porosidade", "Adesão Insuficiente", "Dano Mecânico", "Dimensional Fora", "Impureza", "Trincas", "Outros"];
+
+        window.productionHistory = [];
+        window.resolvedHistory = [];
+        window.targetGoal = localStorage.getItem('orca_local_target') || 1500;
+        window.projectScope = localStorage.getItem('orca_local_scope') || "Projeto Orca";
+        
+        let qualityChart, monthlyRejectedChart, paretoChart;
+
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const color = type === 'success' ? 'bg-green-600' : (type === 'error' ? 'bg-red-600' : (type === 'warning' ? 'bg-orange-500' : 'bg-blue-600'));
+            toast.className = `${color} text-white px-6 py-3 rounded-xl shadow-2xl font-black uppercase text-[10px] tracking-widest toast flex items-center gap-2`;
+            toast.innerHTML = `<span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function applyScope() {
+            document.getElementById('sidebar-scope').innerText = window.projectScope;
+            document.getElementById('header-scope-name').innerText = window.projectScope;
+            const initial = window.projectScope.charAt(0).toUpperCase();
+            document.getElementById('sidebar-initial').innerText = initial;
+            document.getElementById('header-initial').innerText = initial;
+            document.getElementById('config-scope').value = window.projectScope;
+            document.getElementById('config-target').value = window.targetGoal;
+        }
+
+        function switchView(viewId) {
+            const views = ['dashboard', 'input', 'analysis', 'report', 'settings'];
+            views.forEach(v => {
+                document.getElementById(`view-${v}`).classList.add('hidden');
+                document.getElementById(`btn-${v}`).classList.remove('active');
+            });
+            document.getElementById(`view-${viewId}`).classList.remove('hidden');
+            document.getElementById(`btn-${viewId}`).classList.add('active');
+            
+            if(viewId === 'dashboard' && qualityChart) setTimeout(() => qualityChart.update(), 10);
+            if(viewId === 'analysis') {
+                renderAnalysis();
+                if(monthlyRejectedChart) setTimeout(() => monthlyRejectedChart.update(), 10);
+                if(paretoChart) setTimeout(() => paretoChart.update(), 10);
+            }
+            if(viewId === 'input') updateHistoryTable();
+            if(viewId === 'report') renderReport();
+        }
+
+        function generateDynamicInputs() {
+            const pQty = parseInt(document.getElementById('input-pending').value) || 0;
+            const rQty = parseInt(document.getElementById('input-rejected').value) || 0;
+            const container = document.getElementById('dynamic-container');
+            const pList = document.getElementById('pending-pipes-list');
+            const rList = document.getElementById('rejected-pipes-list');
+
+            if(pQty > 0 || rQty > 0) container.classList.remove('hidden');
+            else { container.classList.add('hidden'); return; }
+
+            const generateFields = (qty, type, color) => {
+                let html = '';
+                for(let i=1; i <= qty; i++) {
+                    html += `
+                        <div class="bg-white p-4 rounded-xl border border-${color}-200 shadow-sm space-y-2">
+                            <div class="text-[9px] font-black text-${color}-600 uppercase tracking-widest">${type} #${i}</div>
+                            <input type="text" placeholder="Nº Tubo" class="w-full p-2 border rounded-lg text-xs font-bold pipe-id-${type.toLowerCase()}">
+                            <select class="w-full p-2 border rounded-lg text-xs pipe-cat-${type.toLowerCase()}">
+                                ${DEFECT_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
+                            </select>
+                        </div>`;
+                }
+                return html;
+            };
+
+            pList.innerHTML = generateFields(pQty, 'PENDENTE', 'orange');
+            rList.innerHTML = generateFields(rQty, 'REPROVADO', 'red');
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('qualityChart').getContext('2d');
+            qualityChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [
+                    { label: 'Aprovados', data: [], borderColor: '#22c55e', backgroundColor: 'rgba(34, 197, 94, 0.05)', fill: true, tension: 0.3, pointRadius: 6, pointBackgroundColor: '#22c55e' },
+                    { label: 'Pendentes', data: [], borderColor: '#f97316', borderDash: [5, 5], tension: 0.3, pointRadius: 6, pointBackgroundColor: '#f97316' },
+                    { label: 'Reprovados', data: [], borderColor: '#ef4444', tension: 0.3, pointRadius: 6, pointBackgroundColor: '#ef4444' }
+                ]},
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { align: 'top', anchor: 'end', font: { weight: 'bold', size: 10 }, formatter: (v) => v > 0 ? v : '', color: (c) => c.dataset.borderColor } }, scales: { y: { beginAtZero: true } } }
+            });
+        }
+
+        function initAnalysisCharts() {
+            const ctxM = document.getElementById('monthlyRejectedChart').getContext('2d');
+            monthlyRejectedChart = new Chart(ctxM, {
+                type: 'bar',
+                data: { labels: [], datasets: [{ label: 'Pendentes', data: [], backgroundColor: '#f97316' }, { label: 'Reprovados', data: [], backgroundColor: '#ef4444' }]},
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }, plugins: { legend: { display: false }, datalabels: { display: false } } }
+            });
+
+            const ctxP = document.getElementById('paretoChart').getContext('2d');
+            paretoChart = new Chart(ctxP, {
+                type: 'bar',
+                data: { labels: [], datasets: [{ label: 'Ocorrências', data: [], backgroundColor: '#1e293b', borderRadius: 4 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { anchor: 'end', align: 'top', font: { weight: 'bold' } } }, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } }
+            });
+        }
+
+        document.getElementById('prod-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('submit-btn');
+            const text = document.getElementById('submit-text');
+            const spinner = document.getElementById('submit-spinner');
+            const dateVal = document.getElementById('input-date').value;
+            const editId = document.getElementById('edit-id').value;
+
+            btn.disabled = true;
+            text.innerText = "A Sincronizar...";
+            spinner.classList.remove('hidden');
+
+            const entryId = editId ? parseInt(editId) : Date.now();
+            const entry = {
+                id: entryId,
+                date: dateVal,
+                approved: parseInt(document.getElementById('input-approved').value) || 0,
+                pending: parseInt(document.getElementById('input-pending').value) || 0,
+                rejected: parseInt(document.getElementById('input-rejected').value) || 0,
+                notes: document.getElementById('input-notes').value || "",
+                details: []
+            };
+
+            const collect = (type) => {
+                document.querySelectorAll(`.pipe-id-${type}`).forEach((el, idx) => {
+                    if(el.value) entry.details.push({ id: el.value, reason: document.querySelectorAll(`.pipe-cat-${type}`)[idx].value, status: type.toUpperCase() });
+                });
+            };
+            collect('pendente'); collect('reprovado');
+
+            if (editId) {
+                window.productionHistory = window.productionHistory.filter(h => h.id !== entryId);
+            }
+            window.productionHistory.push(entry);
+            window.productionHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+            localStorage.setItem('orca_local_prod', JSON.stringify(window.productionHistory));
+            updateDashboard();
+            updateHistoryTable();
+
+            const cloudPromise = window.saveEntryToCloud ? window.saveEntryToCloud(entry) : Promise.resolve();
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 4000));
+
+            try {
+                await Promise.race([cloudPromise, timeoutPromise]);
+                showToast("Sincronizado com sucesso!");
+            } catch (err) {
+                showToast("Guardado localmente.", "warning");
+            } finally {
+                btn.disabled = false;
+                text.innerText = "Submeter Apontamento Diário";
+                spinner.classList.add('hidden');
+                this.reset();
+                document.getElementById('edit-id').value = "";
+                document.getElementById('dynamic-container').classList.add('hidden');
+            }
+        });
+
+        window.updateDashboard = () => {
+            const dateFilter = document.getElementById('global-date-filter').value;
+            const now = new Date();
+            
+            const filteredHistory = window.productionHistory.filter(e => {
+                if (dateFilter === 'all') return true;
+                const entryDate = new Date(e.date);
+                const diffTime = Math.abs(now - entryDate);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                return diffDays <= parseInt(dateFilter);
+            });
+
+            let tA = 0, tP = 0, tR = 0;
+            const labels = [], dA = [], dP = [], dR = [];
+            
+            // Variáveis para Pareto e Mensal (Guardando histórico acumulado)
+            const monthlyP = {}, monthlyR = {}, paretoData = {};
+
+            // Processar Histórico Atual
+            window.productionHistory.forEach(e => {
+                const month = e.date.substring(0, 7);
+                e.details.forEach(d => {
+                    paretoData[d.reason] = (paretoData[d.reason] || 0) + 1;
+                    if (d.status === 'PENDENTE') monthlyP[month] = (monthlyP[month] || 0) + 1;
+                    else monthlyR[month] = (monthlyR[month] || 0) + 1;
+                });
+            });
+
+            // Processar Histórico Resolvido (Essencial para manter dados nos gráficos)
+            window.resolvedHistory.forEach(h => {
+                const month = h.dateOrigin.substring(0, 7);
+                paretoData[h.reason] = (paretoData[h.reason] || 0) + 1;
+                if (h.status === 'PENDENTE') monthlyP[month] = (monthlyP[month] || 0) + 1;
+                else monthlyR[month] = (monthlyR[month] || 0) + 1;
+            });
+
+            filteredHistory.forEach(e => {
+                tA += e.approved; tP += e.pending; tR += e.rejected;
+                labels.push(e.date.split('-').reverse().slice(0,2).join('/'));
+                dA.push(e.approved); dP.push(e.pending); dR.push(e.rejected);
+            });
+
+            document.getElementById('stat-total-approved').innerText = tA.toLocaleString();
+            document.getElementById('stat-total-pending').innerText = tP.toLocaleString();
+            document.getElementById('stat-total-rejected').innerText = tR.toLocaleString();
+            
+            const yieldVal = (tA+tP+tR) > 0 ? (tA/(tA+tP+tR))*100 : 0;
+            const yieldEl = document.getElementById('stat-yield');
+            yieldEl.innerText = yieldVal.toFixed(1) + '%';
+            
+            if (yieldVal >= 95) { yieldEl.className = "text-4xl font-black text-green-600"; document.getElementById('stat-yield-label').innerText = "Alta Performance"; }
+            else if (yieldVal >= 85) { yieldEl.className = "text-4xl font-black text-yellow-500"; document.getElementById('stat-yield-label').innerText = "Estável"; }
+            else { yieldEl.className = "text-4xl font-black text-red-600"; document.getElementById('stat-yield-label').innerText = "Crítico"; }
+
+            const remaining = window.targetGoal - tA;
+            document.getElementById('stat-forecast').innerText = remaining > 0 && filteredHistory.length > 0 ? `~${Math.ceil(remaining / (tA / filteredHistory.length))} Dias` : "Concluído";
+
+            const pct = ((tA / window.targetGoal) * 100).toFixed(1);
+            document.getElementById('progress-bar').style.width = Math.min(pct, 100) + '%';
+            
+            if(qualityChart) {
+                qualityChart.data.labels = labels;
+                qualityChart.data.datasets[0].data = dA;
+                qualityChart.data.datasets[1].data = dP;
+                qualityChart.data.datasets[2].data = dR;
+                qualityChart.update();
+            }
+
+            if(monthlyRejectedChart) {
+                const sortedMonths = Object.keys({...monthlyP, ...monthlyR}).sort();
+                monthlyRejectedChart.data.labels = sortedMonths.map(m => m.split('-').reverse().join('/'));
+                monthlyRejectedChart.data.datasets[0].data = sortedMonths.map(m => monthlyP[m] || 0);
+                monthlyRejectedChart.data.datasets[1].data = sortedMonths.map(m => monthlyR[m] || 0);
+                monthlyRejectedChart.update();
+            }
+
+            if(paretoChart) {
+                const sortedCats = Object.keys(paretoData).sort((a,b) => paretoData[b] - paretoData[a]);
+                paretoChart.data.labels = sortedCats;
+                paretoChart.data.datasets[0].data = sortedCats.map(c => paretoData[c]);
+                paretoChart.update();
+            }
+
+            updateCompositionBar(tP, tR);
+        };
+
+        function updateCompositionBar(p, r) {
+            const total = p + r;
+            const barP = document.getElementById('composition-pending');
+            const barR = document.getElementById('composition-rejected');
+            const lbl = document.getElementById('composition-labels');
+            if(total === 0) { if(barP) barP.style.width = '50%'; if(barR) barR.style.width = '50%'; if(lbl) lbl.innerHTML = 'SEM PENDÊNCIAS'; return; }
+            const pPct = (p / total) * 100;
+            if(barP) barP.style.width = pPct + '%'; if(barR) barR.style.width = (100 - pPct) + '%';
+            if(lbl) lbl.innerHTML = `<span class="text-orange-600">${pPct.toFixed(0)}% PENDENTES</span> | <span class="text-red-600">${(100-pPct).toFixed(0)}% REPROVADOS</span>`;
+        }
+
+        window.updateHistoryTable = () => {
+            const body = document.getElementById('history-body');
+            body.innerHTML = '';
+            window.productionHistory.slice().reverse().forEach(e => {
+                body.innerHTML += `<tr><td class="px-6 py-4">${e.date.split('-').reverse().join('/')}</td><td class="px-6 py-4 text-green-600 font-black">${e.approved}</td><td class="px-6 py-4 text-orange-600 font-black">${e.pending}</td><td class="px-6 py-4 text-red-600 font-black">${e.rejected}</td><td class="px-6 py-4 font-medium text-gray-400 italic text-[10px]">${e.notes || '-'}</td><td class="px-6 py-4 text-right no-print"><button id="del-${e.id}" onclick="deleteEntry(${e.id})" class="text-[9px] font-black text-red-400 border border-red-50 px-2 py-1 rounded">ELIMINAR</button></td></tr>`;
+            });
+        };
+
+        window.deleteEntry = async (id) => {
+            if(!confirm("Deseja mesmo eliminar?")) return;
+            if (window.deleteEntryFromCloud) await window.deleteEntryFromCloud(id);
+            if (!window.db || !window.cloudConnected) {
+                window.productionHistory = window.productionHistory.filter(e => e.id !== id);
+                localStorage.setItem('orca_local_prod', JSON.stringify(window.productionHistory));
+                updateDashboard(); updateHistoryTable();
+            }
+        };
+
+        window.renderAnalysis = () => {
+            const grid = document.getElementById('pipe-analysis-grid');
+            if(!grid) return;
+            grid.innerHTML = '';
+            let items = [];
+            window.productionHistory.forEach(e => {
+                e.details.forEach(d => { items.push({...d, entryId: e.id, date: e.date}); });
+            });
+            if(items.length === 0) grid.innerHTML = '<div class="col-span-full py-12 text-center text-gray-400 italic">Nenhum tubo em fila técnica.</div>';
+            else {
+                items.reverse().forEach(p => {
+                    const isP = p.status === 'PENDENTE';
+                    grid.innerHTML += `<div class="bg-white border ${isP ? 'border-orange-200' : 'border-red-200'} p-5 rounded-2xl shadow-sm"><div class="flex justify-between mb-4"><h4 class="text-xl font-black">Tubo: ${p.id}</h4><span class="text-[8px] px-2 py-1 rounded-full font-black ${isP ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}">${p.status}</span></div><p class="text-xs font-bold text-gray-500 mb-4">${p.reason}</p><button onclick="resolvePipe(${p.entryId}, '${p.id}')" class="w-full bg-blue-900 text-white py-2 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-black transition-all">${isP ? 'APROVAR' : 'REPROCESSAR'}</button></div>`;
+                });
+            }
+        };
+
+        window.resolvePipe = async (entryId, pipeId) => {
+            const entry = window.productionHistory.find(e => e.id === entryId);
+            const pIdx = entry.details.findIndex(d => d.id === pipeId);
+            const pipe = entry.details[pIdx];
+            const now = new Date().toLocaleString('pt-PT');
+            let action = '';
+            if(pipe.status === 'PENDENTE') { entry.pending--; entry.approved++; action = 'APROVADO'; }
+            else { entry.rejected--; action = 'REPROCESSADO'; }
+            const res = {...pipe, dateOrigin: entry.date, resolvedAt: now, action};
+            window.resolvedHistory.push(res);
+            entry.details.splice(pIdx, 1);
+            if(!window.db || !window.cloudConnected) {
+                localStorage.setItem('orca_local_prod', JSON.stringify(window.productionHistory));
+                localStorage.setItem('orca_local_res', JSON.stringify(window.resolvedHistory));
+                updateDashboard(); renderAnalysis(); renderReport();
+            } else {
+                if (window.saveEntryToCloud) await window.saveEntryToCloud(entry);
+                if (window.saveResolvedToCloud) await window.saveResolvedToCloud(res);
+            }
+        };
+
+        window.renderReport = () => {
+            const filterDate = document.getElementById('report-filter-date')?.value;
+            const b = document.getElementById('report-table-body');
+            if(!b) return;
+            b.innerHTML = '';
+            
+            let allFaults = [];
+            window.productionHistory.forEach(e => e.details.forEach(d => allFaults.push({...d, date: e.date, sit: 'Aguardando', treatedAt: '--'})));
+            window.resolvedHistory.forEach(h => allFaults.push({...h, date: h.dateOrigin, sit: 'Finalizado', treatedAt: h.resolvedAt}));
+
+            if(filterDate) allFaults = allFaults.filter(x => x.date === filterDate);
+            
+            // Métricas Históricas para o Relatório
+            const totalA = window.productionHistory.filter(e => !filterDate || e.date === filterDate).reduce((acc, curr) => acc + curr.approved, 0);
+            const totalP_acum = allFaults.filter(f => f.status === 'PENDENTE').length;
+            const totalR_acum = allFaults.filter(f => f.status === 'REPROVADO').length;
+            const yieldVal = (totalA + totalP_acum + totalR_acum) > 0 ? (totalA / (totalA + totalP_acum + totalR_acum) * 100).toFixed(1) : '0';
+
+            document.getElementById('report-stat-approved').innerText = totalA.toLocaleString();
+            document.getElementById('report-stat-yield').innerText = yieldVal + '%';
+            document.getElementById('report-stat-pending').innerText = totalP_acum.toLocaleString();
+            document.getElementById('report-stat-rejected').innerText = totalR_acum.toLocaleString();
+
+            allFaults.sort((a,b) => new Date(b.date) - new Date(a.date));
+            allFaults.forEach(x => { 
+                b.innerHTML += `<tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-4 py-2 font-black">${x.id}</td>
+                    <td class="px-4 py-2 text-[10px]">${x.date.split('-').reverse().join('/')}</td>
+                    <td class="px-4 py-2 font-bold text-gray-500 uppercase text-[9px]">${x.status}</td>
+                    <td class="px-4 py-2 text-red-600 font-bold tracking-tight">${x.reason}</td>
+                    <td class="px-4 py-2"><span class="text-[9px] font-black uppercase ${x.sit === 'Finalizado' ? 'text-green-600' : 'text-orange-500'}">${x.sit}</span></td>
+                    <td class="px-4 py-2 text-right text-[10px] text-gray-400 font-bold">${x.treatedAt}</td>
+                </tr>`; 
+            });
+            
+            if(allFaults.length === 0) b.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400 italic">Sem ocorrências registradas.</td></tr>';
+        };
+
+        window.updateSettings = async () => {
+            window.projectScope = document.getElementById('config-scope').value;
+            window.targetGoal = parseInt(document.getElementById('config-target').value);
+            if (window.saveConfigToCloud) await window.saveConfigToCloud();
+            applyScope(); updateDashboard(); renderReport();
+            showToast("Configurações atualizadas!");
+        };
+
+        window.clearAllData = () => { if(confirm("Deseja mesmo resetar todos os dados e apagar o projeto? Esta ação não pode ser desfeita.")) { localStorage.clear(); location.reload(); } };
+
+        window.exportBackupJSON = () => {
+            const data = { prod: window.productionHistory, res: window.resolvedHistory, scope: window.projectScope, target: window.targetGoal, timestamp: new Date().toISOString() };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = `Backup_Orca_${new Date().toISOString().slice(0,10)}.json`; a.click();
+        };
+
+        window.importBackupJSON = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    window.productionHistory = data.prod || [];
+                    window.resolvedHistory = data.res || [];
+                    window.projectScope = data.scope || "Projeto Orca";
+                    window.targetGoal = data.target || 1500;
+                    localStorage.setItem('orca_local_prod', JSON.stringify(window.productionHistory));
+                    localStorage.setItem('orca_local_res', JSON.stringify(window.resolvedHistory));
+                    localStorage.setItem('orca_local_scope', window.projectScope);
+                    localStorage.setItem('orca_local_target', window.targetGoal);
+                    applyScope(); updateDashboard(); updateHistoryTable(); renderReport();
+                    showToast("Backup carregado!");
+                } catch (err) { showToast("Erro ao importar backup.", "error"); }
+            };
+            reader.readAsText(file);
+        };
+
+        window.exportToCSV = () => {
+            let csv = "Data;Aprovados;Pendentes;Reprovados;Observacoes\n";
+            window.productionHistory.forEach(e => csv += `${e.date};${e.approved};${e.pending};${e.rejected};"${e.notes}"\n`);
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = `Relatorio_${window.projectScope}.csv`; a.click();
+        };
+
+        window.onload = () => {
+            document.getElementById('current-date').innerText = new Date().toLocaleDateString('pt-pt', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            initChart();
+            initAnalysisCharts();
+            applyScope();
+            updateDashboard();
+            renderReport();
+        };
+    </script>
+</body>
+</html>
