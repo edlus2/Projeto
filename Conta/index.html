@@ -162,9 +162,26 @@
         let activeTab = 'current';
         let currentMonthFilter = new Date().toISOString().slice(0, 7);
 
-        // Configuração segura do ambiente
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'meu-gestor-financeiro';
+        // CONFIGURAÇÃO DO FIREBASE (Suas chaves para quando estiver no GitHub)
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyA18U7xgZ6GWBnHnfmR4d9q-OeBg6OWL_c",
+            authDomain: "controle-financeiro-fami-2e96f.firebaseapp.com",
+            projectId: "controle-financeiro-fami-2e96f",
+            storageBucket: "controle-financeiro-fami-2e96f.firebasestorage.app",
+            messagingSenderId: "268392392553",
+            appId: "1:268392392553:web:1ba1958928affa2c073ff8",
+            measurementId: "G-QWM6VTJJ8R"
+        };
+
+        // Lógica de Detecção de Ambiente
+        let firebaseConfig;
+        try {
+            firebaseConfig = (typeof __firebase_config !== 'undefined') ? JSON.parse(__firebase_config) : myFirebaseConfig;
+        } catch (e) {
+            firebaseConfig = myFirebaseConfig;
+        }
+        
+        const appId = (typeof __app_id !== 'undefined') ? __app_id : 'controle-financeiro-producao';
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -190,7 +207,6 @@
             toastContent: document.getElementById('toast-content')
         };
 
-        // --- Notificações ---
         function showToast(msg, isError = false) {
             el.toastMsg.innerText = msg;
             el.toastContent.className = `px-6 py-3 rounded-xl shadow-lg text-white font-bold flex items-center gap-2 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
@@ -198,7 +214,6 @@
             setTimeout(() => el.toast.classList.add('translate-x-full'), 3000);
         }
 
-        // --- Interface ---
         window.toggleSidebar = () => {
             document.getElementById('sidebar').classList.toggle('sidebar-hidden');
             document.getElementById('sidebar-overlay').classList.toggle('hidden');
@@ -225,7 +240,6 @@
             render();
         };
 
-        // --- Login ---
         document.getElementById('login-btn').addEventListener('click', () => {
             if (el.passInput.value === MASTER_PASSWORD) {
                 sessionStorage.setItem('authenticated', 'true');
@@ -245,35 +259,32 @@
 
         if (sessionStorage.getItem('authenticated') === 'true') unlock();
 
-        // --- Firebase Inicialização (Regra 3: Auth Antes de Query) ---
         async function initApp() {
             try {
-                // Tenta autenticar primeiro
+                // Tenta autenticar
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
 
-                // Escuta mudanças de estado do usuário
                 onAuthStateChanged(auth, (u) => {
                     user = u;
                     if (user) {
                         el.statusDot.className = "w-2 h-2 rounded-full bg-green-500";
                         el.statusText.innerText = "Conectado";
-                        startDataListener(); // Inicia a escuta só após ter usuário
+                        startDataListener();
                     }
                 });
             } catch (e) { 
                 console.error("Auth Error:", e);
-                showToast("Erro ao conectar no servidor", true); 
+                showToast("Erro ao conectar no banco de dados", true); 
             }
         }
 
-        // --- Firestore (Regra 1: Caminhos Estritos) ---
         function startDataListener() {
             if (!user) return;
-            const colPath = `/artifacts/${appId}/public/data/expenses`;
+            // Caminho da coleção (padrão obrigatório)
             const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'expenses');
             
             onSnapshot(colRef, (snapshot) => {
@@ -392,7 +403,6 @@
             });
         }
 
-        // Funções Globais para Botões na Tabela
         window.removeItem = async (id) => { 
             if (confirm("Deseja realmente excluir este lançamento?")) {
                 try {
