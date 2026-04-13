@@ -162,6 +162,7 @@
         let activeTab = 'current';
         let currentMonthFilter = new Date().toISOString().slice(0, 7);
 
+        // Suas chaves para uso fora do Canvas (GitHub)
         const myFirebaseConfig = {
             apiKey: "AIzaSyA18U7xgZ6GWBnHnfmR4d9q-OeBg6OWL_c",
             authDomain: "controle-financeiro-fami-2e96f.firebaseapp.com",
@@ -172,6 +173,7 @@
             measurementId: "G-QWM6VTJJ8R"
         };
 
+        // Detecção automática de ambiente
         let firebaseConfig;
         try {
             firebaseConfig = (typeof __firebase_config !== 'undefined') ? JSON.parse(__firebase_config) : myFirebaseConfig;
@@ -238,7 +240,6 @@
             render();
         };
 
-        // Função de login melhorada
         const handleLogin = () => {
             if (el.passInput.value === MASTER_PASSWORD) {
                 sessionStorage.setItem('authenticated', 'true');
@@ -260,17 +261,33 @@
             initApp();
         }
 
-        if (sessionStorage.getItem('authenticated') === 'true') {
-            unlock();
-        }
+        if (sessionStorage.getItem('authenticated') === 'true') unlock();
 
         async function initApp() {
             try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                // Tentativa de autenticação com retry automático
+                let attempt = 0;
+                const maxAttempts = 3;
+                
+                const performAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (e) {
+                        if (attempt < maxAttempts) {
+                            attempt++;
+                            console.log(`Tentativa de auth ${attempt} falhou. Tentando novamente...`);
+                            await new Promise(r => setTimeout(r, 1000 * attempt));
+                            return performAuth();
+                        }
+                        throw e;
+                    }
+                };
+
+                await performAuth();
 
                 onAuthStateChanged(auth, (u) => {
                     user = u;
@@ -278,34 +295,42 @@
                         el.statusDot.className = "w-2 h-2 rounded-full bg-green-500";
                         el.statusText.innerText = "Conectado";
                         startDataListener();
+                    } else {
+                        el.statusDot.className = "w-2 h-2 rounded-full bg-red-500";
+                        el.statusText.innerText = "Desconectado";
                     }
                 });
             } catch (e) { 
-                console.error("Auth Error:", e);
-                showToast("Erro ao conectar no banco de dados", true); 
+                console.error("Erro Crítico de Ligação:", e);
+                showToast("Erro ao ligar ao servidor. Verifique a consola.", true); 
             }
         }
 
         function startDataListener() {
             if (!user) return;
+            // Padrão de coleção obrigatório para o ambiente
             const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'expenses');
             
             onSnapshot(colRef, (snapshot) => {
                 expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 render();
             }, (error) => {
-                console.error("Firestore Error:", error);
-                showToast("Erro de permissão no banco", true);
+                console.error("Erro no Firestore:", error);
+                if (error.code === 'permission-denied') {
+                    showToast("Erro: Permissão negada no banco de dados.", true);
+                } else {
+                    showToast("Erro ao ler dados.", true);
+                }
             });
         }
 
         async function saveExpense(e) {
             e.preventDefault();
-            if (!user) return showToast("Aguarde conexão...", true);
+            if (!user) return showToast("Aguarde a ligação ao servidor...", true);
             
             const btnText = el.submitBtn.querySelector('span');
             const originalText = btnText.innerText;
-            btnText.innerText = "Salvando...";
+            btnText.innerText = "A guardar...";
             el.submitBtn.disabled = true;
 
             const editId = document.getElementById('edit-id').value;
@@ -327,12 +352,12 @@
                 } else {
                     const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'expenses');
                     await addDoc(colRef, { ...data, createdAt: new Date().toISOString() });
-                    showToast("Salvo com sucesso!");
+                    showToast("Guardado com sucesso!");
                     e.target.reset();
                 }
             } catch (err) {
                 console.error(err);
-                showToast("Erro ao salvar dados", true);
+                showToast("Erro ao guardar dados.", true);
             } finally {
                 btnText.innerText = originalText;
                 el.submitBtn.disabled = false;
@@ -407,12 +432,12 @@
         }
 
         window.removeItem = async (id) => { 
-            if (confirm("Deseja realmente excluir este lançamento?")) {
+            if (confirm("Deseja realmente eliminar este lançamento?")) {
                 try {
                     await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', id));
-                    showToast("Excluído com sucesso");
+                    showToast("Eliminado com sucesso");
                 } catch (e) {
-                    showToast("Erro ao excluir", true);
+                    showToast("Erro ao eliminar.", true);
                 }
             }
         };
@@ -436,7 +461,7 @@
         function resetForm() {
             document.getElementById('expense-form').reset();
             document.getElementById('edit-id').value = '';
-            el.submitBtn.querySelector('span').innerText = "Salvar";
+            el.submitBtn.querySelector('span').innerText = "Guardar";
             document.getElementById('cancel-edit').classList.add('hidden');
             lucide.createIcons();
         }
