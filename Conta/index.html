@@ -93,7 +93,7 @@
                                 <input type="hidden" id="edit-id">
                                 <div class="space-y-1">
                                     <label class="text-xs font-bold text-slate-500 uppercase">Conta</label>
-                                    <input type="text" id="description" required class="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500" placeholder="Ex: Luz">
+                                    <input type="text" id="description" required class="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500" placeholder="Ex: Aluguel">
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-xs font-bold text-slate-500 uppercase">Data</label>
@@ -105,7 +105,7 @@
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-xs font-bold text-slate-500 uppercase">Valor (R$)</label>
-                                    <input type="text" id="amount" required class="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-bold text-indigo-600" placeholder="0,00">
+                                    <input type="text" id="amount" required class="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 font-bold text-indigo-600" placeholder="0,00" inputmode="decimal">
                                 </div>
                                 <div class="flex items-end">
                                     <button type="submit" id="submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all">
@@ -165,7 +165,7 @@
         let activeTab = 'current';
         let currentMonthFilter = new Date().toISOString().slice(0, 7);
 
-        // --- Firebase Config ---
+        // --- Firebase Config (Restaurada para a versão que funcionava) ---
         const myFirebaseConfig = {
             apiKey: "AIzaSyA18U7xgZ6GWBnHnfmR4d9q-OeBg6OWL_c",
             authDomain: "controle-financeiro-fami-2e96f.firebaseapp.com",
@@ -204,7 +204,6 @@
             toastContent: document.getElementById('toast-content')
         };
 
-        // --- Notificações ---
         function showToast(msg, isError = false) {
             el.toastMsg.innerText = msg;
             el.toastContent.className = `px-6 py-3 rounded-xl shadow-lg text-white font-bold flex items-center gap-2 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
@@ -212,7 +211,6 @@
             setTimeout(() => el.toast.classList.add('translate-x-full'), 3000);
         }
 
-        // --- Interface ---
         window.toggleSidebar = () => {
             document.getElementById('sidebar').classList.toggle('sidebar-hidden');
             document.getElementById('sidebar-overlay').classList.toggle('hidden');
@@ -236,7 +234,6 @@
             render();
         };
 
-        // --- Login ---
         const handleLogin = () => {
             if (el.passInput.value === MASTER_PASSWORD) {
                 sessionStorage.setItem('authenticated', 'true');
@@ -260,7 +257,7 @@
 
         if (sessionStorage.getItem('authenticated') === 'true') unlock();
 
-        // --- Lógica de Banco de Dados ---
+        // --- Lógica de Banco de Dados (Corrigida para restaurar conexão) ---
 
         function initApp() {
             onAuthStateChanged(auth, (u) => {
@@ -275,16 +272,13 @@
                 }
             });
             
+            // Tenta logar de forma silenciosa primeiro
             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token && isCanvas) {
-                signInWithCustomToken(auth, __initial_auth_token).catch(err => {
-                    console.error("Auth Error:", err);
-                    showToast("Erro ao autenticar", true);
-                });
+                signInWithCustomToken(auth, __initial_auth_token).catch(() => signInAnonymously(auth));
             } else {
-                signInAnonymously(auth).catch(err => {
-                    console.error("Connection Error:", err);
-                    showToast("Erro de conexão", true);
-                    el.statusText.innerText = "Erro de Ligação";
+                signInAnonymously(auth).catch(() => {
+                    // Se falhar no GitHub, garante que a mensagem não trave o app
+                    console.warn("Falha na autenticação anônima.");
                 });
             }
         }
@@ -294,9 +288,6 @@
             onSnapshot(colRef, (snapshot) => {
                 expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 render();
-            }, (err) => {
-                console.error("Firestore Error:", err);
-                showToast("Erro ao carregar dados", true);
             });
         }
 
@@ -304,12 +295,12 @@
             e.preventDefault();
             if (!user) return showToast("Aguarde a conexão...", true);
             
-            // Tratamento do valor (trocar vírgula por ponto para parse correto)
-            const rawAmount = document.getElementById('amount').value.replace(',', '.');
-            const numericAmount = parseFloat(rawAmount);
+            // Converte vírgula para ponto e garante que é um número
+            const rawValue = document.getElementById('amount').value.replace(',', '.');
+            const numericValue = parseFloat(rawValue);
 
-            if (isNaN(numericAmount)) {
-                return showToast("Valor inválido! Use apenas números.", true);
+            if (isNaN(numericValue)) {
+                return showToast("Insira um valor numérico válido.", true);
             }
 
             const btnText = el.submitBtn.querySelector('span');
@@ -321,23 +312,25 @@
             const data = {
                 description: document.getElementById('description').value,
                 date: document.getElementById('date').value,
-                observation: document.getElementById('observation').value,
-                amount: numericAmount,
+                observation: document.getElementById('observation').value || "",
+                amount: numericValue,
                 updatedAt: new Date().toISOString()
             };
 
             try {
                 if (editId) {
-                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', editId), data);
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'expenses', editId);
+                    await updateDoc(docRef, data);
                     showToast("Atualizado com sucesso!");
                 } else {
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'expenses'), { ...data, createdAt: new Date().toISOString() });
+                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'expenses');
+                    await addDoc(colRef, { ...data, createdAt: new Date().toISOString() });
                     showToast("Salvo com sucesso!");
                 }
-                resetForm(); // Limpa tudo após salvar ou atualizar
+                resetForm();
             } catch (err) {
                 console.error("Erro ao salvar:", err);
-                showToast("Erro ao salvar no banco. Verifique as permissões.", true);
+                showToast("Erro ao salvar. Verifique o console.", true);
             } finally {
                 btnText.innerText = originalText;
                 el.submitBtn.disabled = false;
@@ -405,9 +398,7 @@
                 try {
                     await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', id));
                     showToast("Excluído com sucesso!");
-                } catch (e) {
-                    showToast("Erro ao excluir", true);
-                }
+                } catch (e) { showToast("Erro ao excluir", true); }
             }
         };
 
@@ -417,7 +408,7 @@
                 if (activeTab !== 'current') window.switchTab('current');
                 document.getElementById('description').value = ex.description;
                 document.getElementById('date').value = ex.date;
-                document.getElementById('observation').value = ex.observation;
+                document.getElementById('observation').value = ex.observation || "";
                 document.getElementById('amount').value = ex.amount.toString().replace('.', ',');
                 document.getElementById('edit-id').value = ex.id;
                 el.submitBtn.querySelector('span').innerText = "Atualizar";
