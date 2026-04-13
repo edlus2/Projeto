@@ -66,7 +66,6 @@
         <div id="sidebar-overlay" onclick="window.toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden"></div>
 
         <div class="flex-1 flex flex-col min-w-0 bg-slate-50">
-            <!-- Navbar Mobile -->
             <header class="bg-white border-b border-slate-200 p-4 lg:hidden flex justify-between items-center">
                 <button onclick="window.toggleSidebar()" class="p-2 text-slate-600"><i data-lucide="menu"></i></button>
                 <h1 class="font-bold text-slate-800">Nosso Controle</h1>
@@ -79,7 +78,6 @@
             </header>
 
             <div class="p-6 lg:p-10 space-y-8">
-                <!-- Filtro Histórico -->
                 <div id="history-filter" class="hidden glass-card p-4 rounded-2xl border border-slate-200 flex flex-wrap items-center gap-4">
                     <div class="flex items-center gap-2 text-slate-600 font-medium"><i data-lucide="calendar" size="18"></i><span>Filtrar Mês:</span></div>
                     <input type="month" id="filter-month" class="bg-white border border-slate-300 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500">
@@ -87,7 +85,6 @@
 
                 <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
                     <div class="xl:col-span-2 space-y-8">
-                        <!-- Formulário -->
                         <section id="form-section" class="glass-card p-6 rounded-2xl shadow-sm border border-slate-200">
                             <h3 class="text-lg font-bold mb-4 text-slate-800 flex items-center gap-2"><i data-lucide="plus-circle" class="text-indigo-600"></i> Novo Lançamento</h3>
                             <form id="expense-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -117,7 +114,6 @@
                             </form>
                         </section>
 
-                        <!-- Tabela -->
                         <section class="glass-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                             <div class="p-6 border-b border-slate-100 flex justify-between items-center">
                                 <h3 class="text-lg font-bold text-slate-800">Lançamentos</h3>
@@ -142,7 +138,6 @@
                         </section>
                     </div>
 
-                    <!-- Lateral -->
                     <div class="space-y-8">
                         <section class="glass-card p-6 rounded-2xl shadow-sm border border-slate-200">
                             <h3 class="text-sm font-bold text-slate-400 uppercase mb-4">Total do Mês</h3>
@@ -167,25 +162,17 @@
         let activeTab = 'current';
         let currentMonthFilter = new Date().toISOString().slice(0, 7);
 
-        const myFirebaseConfig = {
-            apiKey: "AIzaSyA18U7xgZ6GWBnHnfmR4d9q-OeBg6OWL_c",
-            authDomain: "controle-financeiro-fami-2e96f.firebaseapp.com",
-            projectId: "controle-financeiro-fami-2e96f",
-            storageBucket: "controle-financeiro-fami-2e96f.firebasestorage.app",
-            messagingSenderId: "268392392553",
-            appId: "1:268392392553:web:1ba1958928affa2c073ff8",
-            measurementId: "G-QWM6VTJJ8R"
-        };
-
-        const isCanvas = typeof __firebase_config !== 'undefined';
-        const firebaseConfig = isCanvas ? JSON.parse(__firebase_config) : myFirebaseConfig;
-        const appId = isCanvas && typeof __app_id !== 'undefined' ? __app_id : 'meu-gestor-financeiro';
+        // Configuração segura do ambiente
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'meu-gestor-financeiro';
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        let user = null, expenses = [], myChart = null;
+        let user = null;
+        let expenses = [];
+        let myChart = null;
 
         const el = {
             loginScreen: document.getElementById('login-screen'),
@@ -204,9 +191,9 @@
         };
 
         // --- Notificações ---
-        function showToast(msg, error = false) {
+        function showToast(msg, isError = false) {
             el.toastMsg.innerText = msg;
-            el.toastContent.className = `px-6 py-3 rounded-xl shadow-lg text-white font-bold flex items-center gap-2 ${error ? 'bg-red-500' : 'bg-green-500'}`;
+            el.toastContent.className = `px-6 py-3 rounded-xl shadow-lg text-white font-bold flex items-center gap-2 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
             el.toast.classList.remove('translate-x-full');
             setTimeout(() => el.toast.classList.add('translate-x-full'), 3000);
         }
@@ -258,36 +245,49 @@
 
         if (sessionStorage.getItem('authenticated') === 'true') unlock();
 
-        // --- Firebase ---
+        // --- Firebase Inicialização (Regra 3: Auth Antes de Query) ---
         async function initApp() {
-            onAuthStateChanged(auth, (u) => {
-                user = u;
-                if (user) {
-                    el.statusDot.className = "w-2 h-2 rounded-full bg-green-500";
-                    el.statusText.innerText = "Conectado";
-                    loadData();
-                }
-            });
             try {
-                if (isCanvas && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                // Tenta autenticar primeiro
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
-            } catch (e) { showToast("Erro de conexão!", true); }
+
+                // Escuta mudanças de estado do usuário
+                onAuthStateChanged(auth, (u) => {
+                    user = u;
+                    if (user) {
+                        el.statusDot.className = "w-2 h-2 rounded-full bg-green-500";
+                        el.statusText.innerText = "Conectado";
+                        startDataListener(); // Inicia a escuta só após ter usuário
+                    }
+                });
+            } catch (e) { 
+                console.error("Auth Error:", e);
+                showToast("Erro ao conectar no servidor", true); 
+            }
         }
 
-        function loadData() {
+        // --- Firestore (Regra 1: Caminhos Estritos) ---
+        function startDataListener() {
+            if (!user) return;
+            const colPath = `/artifacts/${appId}/public/data/expenses`;
             const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'expenses');
-            onSnapshot(colRef, (s) => {
-                expenses = s.docs.map(d => ({ id: d.id, ...d.data() }));
+            
+            onSnapshot(colRef, (snapshot) => {
+                expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 render();
-            }, (err) => showToast("Erro ao ler dados: " + err.code, true));
+            }, (error) => {
+                console.error("Firestore Error:", error);
+                showToast("Erro de permissão no banco", true);
+            });
         }
 
         async function saveExpense(e) {
             e.preventDefault();
-            if (!user) return showToast("Não autenticado!", true);
+            if (!user) return showToast("Aguarde conexão...", true);
             
             const btnText = el.submitBtn.querySelector('span');
             const originalText = btnText.innerText;
@@ -300,22 +300,25 @@
                 date: document.getElementById('date').value,
                 observation: document.getElementById('observation').value,
                 amount: parseFloat(document.getElementById('amount').value),
-                updatedAt: new Date().toISOString()
+                updatedAt: new Date().toISOString(),
+                userId: user.uid
             };
 
             try {
                 if (editId) {
-                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', editId), data);
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'expenses', editId);
+                    await updateDoc(docRef, data);
                     showToast("Atualizado com sucesso!");
                     resetForm();
                 } else {
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'expenses'), { ...data, createdAt: new Date().toISOString() });
+                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'expenses');
+                    await addDoc(colRef, { ...data, createdAt: new Date().toISOString() });
                     showToast("Salvo com sucesso!");
                     e.target.reset();
                 }
             } catch (err) {
                 console.error(err);
-                showToast("Erro ao salvar! Verifique as regras do Firestore.", true);
+                showToast("Erro ao salvar dados", true);
             } finally {
                 btnText.innerText = originalText;
                 el.submitBtn.disabled = false;
@@ -323,8 +326,13 @@
         }
 
         function render() {
-            const target = activeTab === 'current' ? currentMonthFilter : document.getElementById('filter-month').value;
-            const filtered = expenses.filter(ex => ex.date.startsWith(target)).sort((a,b) => new Date(a.date) - new Date(b.date));
+            const filterInput = document.getElementById('filter-month');
+            if (!filterInput.value) filterInput.value = currentMonthFilter;
+            
+            const target = activeTab === 'current' ? currentMonthFilter : filterInput.value;
+            const filtered = expenses
+                .filter(ex => ex.date && ex.date.startsWith(target))
+                .sort((a,b) => new Date(a.date) - new Date(b.date));
             
             el.list.innerHTML = '';
             let total = 0;
@@ -342,8 +350,8 @@
                         <td class="py-4 px-2 text-slate-500">${ex.date.split('-').reverse().join('/')}</td>
                         <td class="py-4 px-2 text-right font-bold">R$ ${ex.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                         <td class="py-4 px-6 text-center space-x-2">
-                            <button onclick="window.editItem('${ex.id}')" class="text-indigo-600 p-2"><i data-lucide="edit-3" size="16"></i></button>
-                            <button onclick="window.removeItem('${ex.id}')" class="text-red-500 p-2"><i data-lucide="trash-2" size="16"></i></button>
+                            <button onclick="window.editItem('${ex.id}')" class="text-indigo-600 p-2 hover:bg-indigo-50 rounded-lg"><i data-lucide="edit-3" size="16"></i></button>
+                            <button onclick="window.removeItem('${ex.id}')" class="text-red-500 p-2 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" size="16"></i></button>
                         </td>`;
                     el.list.appendChild(row);
                 });
@@ -362,18 +370,40 @@
             const summary = data.reduce((a, c) => { a[c.description] = (a[c.description] || 0) + c.amount; return a; }, {});
             if (myChart) myChart.destroy();
             if (Object.keys(summary).length === 0) return;
+            
             myChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
                     labels: Object.keys(summary),
-                    datasets: [{ data: Object.values(summary), backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'], borderWidth: 0 }]
+                    datasets: [{ 
+                        data: Object.values(summary), 
+                        backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'], 
+                        borderWidth: 0 
+                    }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }, cutout: '75%' }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } 
+                    }, 
+                    cutout: '75%' 
+                }
             });
         }
 
-        document.getElementById('expense-form').addEventListener('submit', saveExpense);
-        window.removeItem = async (id) => { if (confirm("Excluir?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', id)); };
+        // Funções Globais para Botões na Tabela
+        window.removeItem = async (id) => { 
+            if (confirm("Deseja realmente excluir este lançamento?")) {
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', id));
+                    showToast("Excluído com sucesso");
+                } catch (e) {
+                    showToast("Erro ao excluir", true);
+                }
+            }
+        };
+
         window.editItem = (id) => {
             const ex = expenses.find(e => e.id === id);
             if (ex) {
@@ -398,8 +428,10 @@
             lucide.createIcons();
         }
 
+        document.getElementById('expense-form').addEventListener('submit', saveExpense);
         document.getElementById('cancel-edit').addEventListener('click', resetForm);
         document.getElementById('filter-month').addEventListener('change', render);
+        
         lucide.createIcons();
     </script>
 </body>
